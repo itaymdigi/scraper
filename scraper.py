@@ -21,6 +21,7 @@ import platform
 import psutil
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import numpy as np
 import seaborn as sns
 import pandas as pd
@@ -1167,15 +1168,58 @@ def create_color_palette_visualization(color_palette):
     counts = []
     labels = []
     
+    def is_valid_color(color_str):
+        """Check if a color string is valid for matplotlib"""
+        try:
+            # Try to convert the color - if it fails, it's invalid
+            mcolors.to_rgba(color_str)
+            return True
+        except (ValueError, TypeError):
+            return False
+    
+    def sanitize_color(color_str):
+        """Sanitize color string for matplotlib"""
+        if not color_str or not isinstance(color_str, str):
+            return '#808080'  # Default gray
+        
+        color_str = color_str.strip()
+        
+        # If it's already a valid color, return it
+        if is_valid_color(color_str):
+            return color_str
+        
+        # Try to fix common issues
+        if color_str.startswith('rgb(') and color_str.endswith(')'):
+            # Extract RGB values and convert to hex
+            try:
+                rgb_str = color_str[4:-1]  # Remove 'rgb(' and ')'
+                rgb_values = [int(x.strip()) for x in rgb_str.split(',')]
+                if len(rgb_values) == 3 and all(0 <= v <= 255 for v in rgb_values):
+                    return f'#{rgb_values[0]:02x}{rgb_values[1]:02x}{rgb_values[2]:02x}'
+            except (ValueError, IndexError):
+                pass
+        
+        # If color doesn't start with #, try adding it
+        if not color_str.startswith('#') and len(color_str) in [3, 6]:
+            test_color = f'#{color_str}'
+            if is_valid_color(test_color):
+                return test_color
+        
+        # Return default gray if all else fails
+        return '#808080'
+    
     for item in color_palette[:10]:  # Show top 10 colors
-        color = item['color']
+        original_color = item['color']
         count = item['count']
         
-        colors.append(color)
+        # Sanitize the color for matplotlib
+        safe_color = sanitize_color(original_color)
+        
+        colors.append(safe_color)
         counts.append(count)
-        labels.append(f"{color}\n({count} uses)")
+        labels.append(f"{original_color}\n({count} uses)")
     
-    # Create horizontal bar chart
+    # Create horizontal bar chart with sanitized colors
     bars = ax.barh(range(len(colors)), counts, color=colors)
     
     ax.set_yticks(range(len(colors)))
