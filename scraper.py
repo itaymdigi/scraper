@@ -419,7 +419,7 @@ elif st.session_state.theme == "Blue":
     
     if st.button("Apply Theme", key="apply_theme_btn"):
         st.session_state.theme = theme
-        st.experimental_rerun()
+        st.rerun()
     
     # API Key management
     st.subheader("API Keys")
@@ -448,17 +448,17 @@ with col1:
     dark_btn = st.sidebar.button("🌙 Dark" if st.session_state.theme != "Dark" else "🌙 Dark ✓", key="dark_theme_btn", use_container_width=True)
     if dark_btn:
         st.session_state.theme = "Dark"
-        st.experimental_rerun()
+        st.rerun()
 with col2:
     light_btn = st.sidebar.button("☀️ Light" if st.session_state.theme != "Light" else "☀️ Light ✓", key="light_theme_btn", use_container_width=True)
     if light_btn:
         st.session_state.theme = "Light"
-        st.experimental_rerun()
+        st.rerun()
 with col3:
     blue_btn = st.sidebar.button("🔵 Blue" if st.session_state.theme != "Blue" else "🔵 Blue ✓", key="blue_theme_btn", use_container_width=True)
     if blue_btn:
         st.session_state.theme = "Blue"
-        st.experimental_rerun()
+        st.rerun()
 
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Go to", ["Web Scraper", "About", "Settings"])
@@ -648,7 +648,7 @@ if 'crawl_results' not in st.session_state:
 # Clear results if requested
 if clear_results:
     st.session_state.crawl_results = None
-    st.experimental_rerun()
+    st.rerun()
     
     # Display visualizations if we have results
 if st.session_state.crawl_results:
