@@ -25,6 +25,7 @@ pip-wheel-metadata/
 
 # --- Streamlit ---
 .streamlit/cache/*
+.streamlit/secrets.toml
 
 # --- IDE / Editor configs ---
 .vscode/

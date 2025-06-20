@@ -4,10 +4,12 @@ import crawl4ai
 import requests
 from bs4 import BeautifulSoup
 import json
-import csv
-import io
-import datetime
 import base64
+import datetime
+import io
+import csv
+import time
+from urllib.parse import urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 from collections import Counter
@@ -21,7 +23,7 @@ def perform_crawl(target_url: str, depth: int = 1, max_pages: int = 20, timeout:
     results = []
     try:
         import requests
-        from urllib.parse import urljoin, urlparse
+        from urllib.parse import urlparse, urljoin
         from bs4 import BeautifulSoup
         
         # Parse custom domains if provided
@@ -195,12 +197,55 @@ def generate_technical_report(html: str, url: str = "") -> dict:
         report["error"] = str(e)
     return report
 
+# --- DeepSeek API Function ---
+# Global variable for the API key that will be set properly later
+DEEPSEEK_API_KEY = ""
+def deepseek_chat(messages, system_prompt="You are a helpful AI assistant.", temperature=0.7, max_tokens=None):
+    """Call the DeepSeek API for chat completion. This function is thread-safe."""
+    if not DEEPSEEK_API_KEY:
+        raise ValueError("DeepSeek API key is required but not provided")
+        
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *messages
+        ],
+        "temperature": temperature
+    }
+    
+    # Add max_tokens if specified
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
+    
+    response = requests.post(
+        "https://api.deepseek.com/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
+        },
+        json=payload
+    )
+    
+    # Raise an exception for bad status codes (4xx or 5xx)
+    response.raise_for_status()
+        
+    return response.json()["choices"][0]["message"]["content"]
+
 # --- Streamlit UI ---
 st.set_page_config(page_title="AI Web Scraper", layout="wide")
 st.title("🤖 AI-Powered Web Scraper")
 st.markdown("""
-Easily scrape web data and process it with DeepSeek AI. Configure your crawl and analysis below.
+A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
 """)
+
+# System prompts for different summarization styles
+system_prompts = {
+    "Default": "You are a helpful AI assistant. Your task is to summarize the provided web page content.",
+    "Concise (2-3 Sentences)": "You are an AI assistant. Summarize the provided web page content concisely, in 2-3 sentences.",
+    "Detailed (Key Points)": "You are an AI assistant. Provide a detailed summary of the web page content, covering main points, arguments, and conclusions.",
+    "Bullet Points": "You are an AI assistant. Summarize the web page content as a list of bullet points, highlighting the key information."
+}
 
 # --- UI Inputs ---
 st.title("Web Scraper with DeepSeek AI")
@@ -217,7 +262,7 @@ with st.expander("Advanced Crawling Parameters"):
         crawl_depth = st.slider("Crawl Depth", min_value=1, max_value=5, value=1, help="How many links deep to crawl")
         
         # Input for max pages
-        max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=20, help="Maximum number of pages to crawl")
+        max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=4, help="Maximum number of pages to crawl")
         
         # Input for request timeout
         timeout = st.number_input("Request Timeout (seconds)", min_value=1, max_value=60, value=10, help="Timeout for each HTTP request")
@@ -261,6 +306,8 @@ custom_prompt = ""
 custom_language = "English"
 if operation == "Summarize each page":
     summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
+    summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
+    summary_temperature = 0.7  # Default temperature for summaries
 
 if operation == "Custom prompt": 
     # Language option
@@ -294,10 +341,22 @@ Provide a detailed analysis including:
             """You are an expert web content analyst. Analyze the provided web content thoroughly and provide insightful, accurate analysis. Be objective and focus on the facts presented in the content.""", 
             height=100)
 
-# DeepSeek API Key (for demo purposes, using provided key directly)
-# SECURITY WARNING: Never hardcode API keys in production! Use st.secrets or environment variables.
-# The API key is hardcoded here for this demo and the input field has been removed.
-DEEPSEEK_API_KEY = "sk-54b8868459fe40ea9dd75b90740a5891"
+# DeepSeek API Key - Using Streamlit secrets management
+# For local development, you can use st.secrets or environment variables
+try:
+    # Try to get from Streamlit secrets (for deployment)
+    DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
+except:
+    # Fallback for local development
+    import os
+    DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+    
+    # If no API key found, show input field
+    if not DEEPSEEK_API_KEY:
+        DEEPSEEK_API_KEY = st.text_input("DeepSeek API Key", type="password", 
+                                       help="Enter your DeepSeek API key. This will not be stored permanently.")
+        if not DEEPSEEK_API_KEY:
+            st.warning("Please enter a DeepSeek API key to use the AI features.")
 
 # --- Scrape Button ---
 if st.button("Start Scraping"):
@@ -327,46 +386,13 @@ if st.button("Start Scraping"):
                 page["report"] = generate_technical_report(page["content"], page["url"])
 
             st.info("Sending data to DeepSeek API...")
-            def deepseek_chat(messages, system_prompt="You are a helpful AI assistant.", temperature=0.7, max_tokens=None):
-                """Call the DeepSeek API for chat completion."""
-                DEEPSEEK_API_KEY = "sk-54b8868459fe40ea9dd75b90740a5891"  # Hardcoded for demo purposes
-                
-                try:
-                    # Build the request payload
-                    payload = {
-                        "model": "deepseek-chat",
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            *messages
-                        ],
-                        "temperature": temperature
-                    }
-                    
-                    # Add max_tokens if specified
-                    if max_tokens:
-                        payload["max_tokens"] = max_tokens
-                    
-                    response = requests.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Content-Type": "application/json",
-                            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-                        },
-                        json=payload
-                    )
-                    
-                    # Check for errors in the API response
-                    if response.status_code != 200:
-                        st.error(f"DeepSeek API Error: {response.status_code} - {response.text}")
-                        return f"Error: API returned status code {response.status_code}"
-                        
-                    return response.json()["choices"][0]["message"]["content"]
-                except Exception as e:
-                    st.error(f"DeepSeek API Error: {e}")
-                    return f"Error: {e}"
 
             if operation == "Summarize each page":
-                st.subheader("Page Summaries")
+                st.subheader("Processing Summaries...")
+
+                # Define temperature for summaries if not already defined
+                if 'summary_temperature' not in locals():
+                    summary_temperature = 0.7
 
                 # Helper to build prompt for a page
                 def build_summary_prompt(page_text, page_url):
@@ -375,47 +401,55 @@ if st.button("Start Scraping"):
                         base_prompt += "\n\nPlease respond in Hebrew."
                     return base_prompt
 
-                summaries = [None]*len(crawl_results)
-                progress = st.progress(0.0)
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    future_to_idx = {}
-                    for idx, page in enumerate(crawl_results):
-                        # Extract plain text
-                        text = page["text"][:4000]
-                        prompt_text = build_summary_prompt(text, page["url"])
-                        future = executor.submit(
-                            deepseek_chat,
+                # Process pages sequentially - simpler approach without threading
+                summaries = []
+                
+                # Create and display progress bar
+                progress_text = "Preparing to summarize pages..."
+                my_bar = st.progress(0, text=progress_text)
+                
+                # Process each page one by one
+                total_pages = len(crawl_results)
+                for i, page in enumerate(crawl_results):
+                    # Update progress
+                    progress_text = f"Summarizing page {i+1} of {total_pages}"
+                    progress_value = float(i) / float(total_pages)
+                    my_bar.progress(progress_value, text=progress_text)
+                    
+                    # Extract text content (limit to 4000 chars)
+                    text = page["text"][:4000] if "text" in page else ""
+                    
+                    # Build the prompt
+                    prompt_text = build_summary_prompt(text, page["url"])
+                    
+                    # Call DeepSeek API with proper error handling
+                    try:
+                        # Make the API call
+                        summary = deepseek_chat(
                             [{"role": "user", "content": prompt_text}],
                             system_prompt=system_prompts[summary_style],
                             temperature=summary_temperature
                         )
-                        future_to_idx[future] = idx
-                    completed = 0
-                    total = len(crawl_results)
-                    for future in as_completed(future_to_idx):
-                        idx = future_to_idx[future]
-                        try:
-                            summaries[idx] = future.result()
-                        except Exception as e:
-                            summaries[idx] = f"Error: {e}"
-                        completed += 1
-                        progress.progress(completed/total)
-                progress.empty()
+                        summaries.append(summary)
+                    except Exception as e:
+                        # Handle any errors
+                        error_message = f"Error processing summary: {str(e)}"
+                        summaries.append(error_message)
+                        st.error(f"Error on page {i+1}: {str(e)}")
+                
+                # Complete the progress bar
+                my_bar.progress(1.0, text="Summarization complete!")
+                time.sleep(0.5)  # Brief pause
+                my_bar.empty()
 
                 # Display summaries
-                for idx, (page, summary) in enumerate(zip(crawl_results, summaries), start=1):
+                st.subheader("Page Summaries")
+                for i, (page, summary_text) in enumerate(zip(crawl_results, summaries)):
                     with st.expander(f"Summary for {page['url']}"):
-                        st.write(summary)
-                    prompt = (
-                        "Summarize the following web page content in 3-5 concise sentences.\n"\
-                        "### Content:\n" + page["text"][:4000]
-                    )
-                    result = deepseek_chat([
-                        {"role": "user", "content": prompt}
-                    ])
-                    summary = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
-                    st.markdown(f"**Page {idx}: {page['url']}**")
-                    st.write(summary)
+                        if isinstance(summary_text, str) and summary_text.startswith("Error"):
+                            st.error(summary_text)
+                        else:
+                            st.write(summary_text)
             else:  # Ask a question about crawl
                 if not user_question:
                     st.warning("Please enter a question to ask about the crawl.")
