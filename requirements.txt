@@ -1,0 +1,7 @@
+# Core dependencies for your Streamlit web scraper app
+streamlit
+crawl4ai
+requests
+beautifulsoup4
+# Add the DeepSeek API client when available (placeholder below)
+# deepseek (replace with actual package name if pip-installable)

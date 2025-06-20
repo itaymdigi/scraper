@@ -1,0 +1,49 @@
+# ----------------------------
+# Global ignores for this project
+# Only commit source code & config – skip caches, envs, IDE settings, etc.
+# ----------------------------
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# --- Virtual Environments ---
+venv/
+.venv/
+ENV/
+.env/
+env/
+# pip build metadata
+pip-wheel-metadata/
+
+# --- Streamlit ---
+.streamlit/cache/*
+
+# --- IDE / Editor configs ---
+.vscode/
+.idea/
+
+# --- OS generated files ---
+.DS_Store
+Thumbs.db
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Testing ---
+.pytest_cache/
+coverage.xml
+htmlcov/
+
+# --- Logs ---
+*.log
+
+# --- AI / Codeium ---
+.codeium/
