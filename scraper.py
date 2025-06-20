@@ -338,12 +338,92 @@ def deepseek_chat(messages, system_prompt="You are a helpful AI assistant.", tem
                 # Exponential backoff: wait 2^attempt seconds before retrying
                 wait_time = 2 ** attempt
                 time.sleep(wait_time)
-                continue
             else:
                 raise ValueError(f"Failed to call DeepSeek API after {retry_count} attempts: {e}")
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="AI Web Scraper", layout="wide")
+st.set_page_config(page_title="AI Web Scraper", layout="wide", initial_sidebar_state="expanded")
+
+# Initialize theme in session state if not already present
+if 'theme' not in st.session_state:
+    st.session_state.theme = "Dark"  # Default to Dark theme
+
+# Define CSS for different themes
+dark_theme = """
+<style>
+.stApp {background-color: #121212 !important;}
+.card {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
+.main-header {color: #BB86FC !important;}
+.stTextInput>div>div>input {background-color: #333 !important; color: white !important;}
+.stSelectbox>div>div>div {background-color: #333 !important; color: white !important;}
+.stTabs [data-baseweb="tab-list"] {background-color: #1E1E1E !important;}
+.stTabs [data-baseweb="tab"] {color: #E0E0E0 !important;}
+.stTabs [aria-selected="true"] {background-color: #333 !important;}
+.stMarkdown {color: #E0E0E0 !important;}
+.stDataFrame {color: #E0E0E0 !important;}
+.stButton>button {background-color: #333 !important; color: white !important;}
+.stExpander {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
+.stRadio>div {color: #E0E0E0 !important;}
+.stSidebar .stButton>button {background-color: #444 !important; color: white !important;}
+</style>
+"""
+
+light_theme = """
+<style>
+.stApp {background-color: #FFFFFF !important;}
+.card {background-color: #F8F9FA !important; color: #212529 !important;}
+.main-header {color: #0D6EFD !important;}
+</style>
+"""
+
+blue_theme = """
+<style>
+.stApp {background-color: #E3F2FD !important;}
+.card {background-color: white !important;}
+.main-header {color: #0D47A1 !important;}
+</style>
+"""
+
+# Apply theme based on session state
+if st.session_state.theme == "Dark":
+    st.markdown(dark_theme, unsafe_allow_html=True)
+elif st.session_state.theme == "Light":
+    st.markdown(light_theme, unsafe_allow_html=True)
+elif st.session_state.theme == "Blue":
+    st.markdown(blue_theme, unsafe_allow_html=True)
+    st.title("Settings")
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    
+    # Theme settings
+    st.subheader("Theme Settings")
+    
+    # Store theme preference in session state
+    theme = st.selectbox("Select Theme", ["Light", "Dark", "Blue"], 
+                       index=["Light", "Dark", "Blue"].index(st.session_state.theme),
+                       key="theme_select")
+    
+    # Add color preview boxes
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("""
+        <div style="background-color: #FFFFFF; color: #000000; padding: 10px; border-radius: 5px; text-align: center;">Light</div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div style="background-color: #121212; color: #E0E0E0; padding: 10px; border-radius: 5px; text-align: center;">Dark</div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown("""
+        <div style="background-color: #E3F2FD; color: #0D47A1; padding: 10px; border-radius: 5px; text-align: center;">Blue</div>
+        """, unsafe_allow_html=True)
+    
+    if st.button("Apply Theme", key="apply_theme_btn"):
+        st.session_state.theme = theme
+        st.experimental_rerun()
+    
+    # API Key management
+    st.subheader("API Keys")
+
 st.title("🤖 AI-Powered Web Scraper")
 st.markdown("""
 A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
@@ -360,6 +440,27 @@ system_prompts = {
 # --- UI Inputs ---
 # Add a sidebar for better navigation
 st.sidebar.title("Navigation")
+
+# Theme toggle in sidebar
+st.sidebar.markdown("### Theme")
+col1, col2, col3 = st.sidebar.columns([1, 1, 1])
+with col1:
+    dark_btn = st.sidebar.button("🌙 Dark" if st.session_state.theme != "Dark" else "🌙 Dark ✓", key="dark_theme_btn", use_container_width=True)
+    if dark_btn:
+        st.session_state.theme = "Dark"
+        st.experimental_rerun()
+with col2:
+    light_btn = st.sidebar.button("☀️ Light" if st.session_state.theme != "Light" else "☀️ Light ✓", key="light_theme_btn", use_container_width=True)
+    if light_btn:
+        st.session_state.theme = "Light"
+        st.experimental_rerun()
+with col3:
+    blue_btn = st.sidebar.button("🔵 Blue" if st.session_state.theme != "Blue" else "🔵 Blue ✓", key="blue_theme_btn", use_container_width=True)
+    if blue_btn:
+        st.session_state.theme = "Blue"
+        st.experimental_rerun()
+
+st.sidebar.markdown("---")
 page = st.sidebar.radio("Go to", ["Web Scraper", "About", "Settings"])
 
 if page == "About":
@@ -384,9 +485,6 @@ elif page == "Web Scraper":
     st.title("Web Scraper with DeepSeek AI")
     st.markdown("""
     <style>
-    .stApp {
-        background-color: #f5f7f9;
-    }
     .main-header {
         font-size: 2.5rem;
         color: #1E88E5;
