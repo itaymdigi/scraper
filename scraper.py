@@ -10,6 +10,8 @@ import io
 import csv
 import time
 from urllib.parse import urlparse, urljoin
+import asyncio
+import aiohttp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 from collections import Counter
@@ -22,13 +24,34 @@ import numpy as np
 from PIL import Image, ImageDraw
 import hashlib
 import urllib.robotparser
+import nest_asyncio
+
+# Apply nest_asyncio to make asyncio work with Streamlit
+nest_asyncio.apply()
+
+# Define a synchronous wrapper for the async function
+def perform_crawl(target_url: str, depth: int = 1, max_pages: int = 20, timeout: int = 10, 
+                domain_restriction: str = "Stay in same domain", custom_domains: str = "", 
+                user_agent: str = "Mozilla/5.0", max_workers: int = 5, respect_robots: bool = True, use_cache: bool = True):
+    """Synchronous wrapper for async crawl function"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(perform_crawl_async(target_url, depth, max_pages, timeout, domain_restriction, custom_domains, user_agent, max_workers, respect_robots, use_cache))
 
 # --- Helper Functions ---
 
-def perform_crawl(target_url: str, depth: int = 1, max_pages: int = 20, timeout: int = 10, 
+async def perform_crawl_async(target_url: str, depth: int = 1, max_pages: int = 20, timeout: int = 10, 
                 domain_restriction: str = "Stay in same domain", custom_domains: str = "", 
-                user_agent: str = "Mozilla/5.0", max_workers: int = 5, respect_robots: bool = True):
-    """Crawl a website using crawl4ai and return a list of dicts with url and content."""
+                user_agent: str = "Mozilla/5.0", max_workers: int = 5, respect_robots: bool = True, use_cache: bool = True):
+    """Crawl a website asynchronously and return a list of dicts with url and content."""
+    
+    # Check cache first if caching is enabled
+    if use_cache:
+        cache_key = get_cache_key(target_url, depth, max_pages, domain_restriction)
+        cached_results = get_cached_results(cache_key)
+        if cached_results:
+            return cached_results
+    
     results = []
     try:
         import requests
@@ -43,153 +66,147 @@ def perform_crawl(target_url: str, depth: int = 1, max_pages: int = 20, timeout:
         # Set up headers with user agent
         headers = {'User-Agent': user_agent}
         
-        # Use a session for connection pooling and cookie persistence
-        session = requests.Session()
-        session.headers.update({'User-Agent': user_agent})
+        # Use aiohttp session for async requests
+        connector = aiohttp.TCPConnector(limit=max_workers)
+        async with aiohttp.ClientSession(connector=connector, headers={'User-Agent': user_agent}) as session:
         
-        # Cache for storing already visited pages to avoid re-downloading
-        page_cache = {}
+            # Cache for storing already visited pages to avoid re-downloading
+            page_cache = {}
         
-        # Set up robots.txt parser if needed
-        robots_cache = {}
+            # Set up robots.txt parser if needed
+            robots_cache = {}
         
-        def can_fetch(url):
-            """Check if robots.txt allows scraping this URL"""
-            if not respect_robots:
-                return True
-                
-            parsed_url = urlparse(url)
-            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-            
-            # Check cache first
-            if base_url in robots_cache:
-                rp = robots_cache[base_url]
-            else:
-                # Initialize parser
-                rp = urllib.robotparser.RobotFileParser()
-                rp.set_url(f"{base_url}/robots.txt")
-                try:
-                    rp.read()
-                    robots_cache[base_url] = rp
-                except Exception:
-                    # If we can't read robots.txt, assume we can fetch
+            def can_fetch(url):
+                """Check if robots.txt allows scraping this URL"""
+                if not respect_robots:
                     return True
-            
-            return rp.can_fetch(user_agent, url)
-        
-        visited = set()
-        to_visit = [(target_url, 0)]
-        
-        # Progress bar for crawling
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # For storing errors to display later
-        errors = []
-        
-        def fetch_url(url_info):
-            """Helper function to fetch a single URL"""
-            url, depth = url_info
-            try:
-                # Check robots.txt first
-                if not can_fetch(url):
-                    return {"url": url, "status": "error", "error": "Blocked by robots.txt"}
                     
-                response = session.get(url, timeout=timeout)
-                if response.status_code == 200:
-                    content = response.text
-                    links = []
-                    
-                    if depth < depth:
-                        soup = BeautifulSoup(content, 'html.parser')
-                        base_url = urlparse(url)
-                        base_domain = f"{base_url.scheme}://{base_url.netloc}"
-                        
-                        for link in soup.find_all('a', href=True):
-                            href = link['href'].strip()
-                            # Skip fragments, javascript, mailto, tel
-                            if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
-                                continue
-                            # Make relative URLs absolute
-                            if not href.startswith(('http://', 'https://')):
-                                href = urljoin(base_domain, href)
-                            # Validate URL
-                            parsed_href = urlparse(href)
-                            if not parsed_href.scheme or not parsed_href.netloc:
-                                continue
-                            target_domain = parsed_href.netloc
-                            
-                            # Apply domain restriction based on user selection
-                            should_visit = False
-                            if domain_restriction == "Stay in same domain":
-                                should_visit = (target_domain == base_url.netloc)
-                            elif domain_restriction == "Allow all domains":
-                                should_visit = True
-                            elif domain_restriction == "Custom domain list":
-                                should_visit = any(domain in target_domain for domain in allowed_domains)
-                            
-                            if should_visit and href not in visited:
-                                links.append((href, depth + 1))
-                                
-                    return {
-                        "url": url,
-                        "content": content,
-                        "status": "success",
-                        "links": links
-                    }
-                else:
-                    return {"url": url, "status": "error", "error": f"HTTP {response.status_code}"}
-            except Exception as e:
-                return {"url": url, "status": "error", "error": str(e)}
-        
-        # Initial URL
-        visited.add(target_url)
-        current_batch = [(target_url, 0)]
-        
-        # Process URLs in batches with parallel execution
-        while current_batch and len(visited) < max_pages:
-            status_text.text(f"Crawling batch of {len(current_batch)} URLs...")
-            
-            # Use ThreadPoolExecutor for parallel processing
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_url = {executor.submit(fetch_url, url_info): url_info for url_info in current_batch}
+                parsed_url = urlparse(url)
+                base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
                 
-                next_batch = []
-                for future in as_completed(future_to_url):
-                    url_info = future_to_url[future]
+                # Check cache first
+                if base_url in robots_cache:
+                    rp = robots_cache[base_url]
+                else:
+                    # Initialize parser
+                    rp = urllib.robotparser.RobotFileParser()
+                    rp.set_url(f"{base_url}/robots.txt")
                     try:
-                        data = future.result()
-                        if data["status"] == "success":
-                            results.append({"url": data["url"], "content": data["content"]})
-                            next_batch.extend(data["links"])
-                        else:
-                            errors.append(f"Error on {data['url']}: {data.get('error', 'Unknown error')}")
-                    except Exception as e:
-                        errors.append(f"Exception for {url_info[0]}: {str(e)}")
+                        rp.read()
+                        robots_cache[base_url] = rp
+                    except Exception:
+                        # If we can't read robots.txt, assume we can fetch
+                        return True
+                
+                return rp.can_fetch(user_agent, url)
+        
+            visited = set()
+            to_visit = [(target_url, 0)]
+        
+            # Progress bar for crawling
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+        
+            # For storing errors to display later
+            errors = []
+        
+            async def fetch_url(url_info):
+                """Helper function to fetch a single URL asynchronously"""
+                url, depth_level = url_info
+                try:
+                    # Check robots.txt first
+                    if not can_fetch(url):
+                        return {"url": url, "status": "error", "error": "Blocked by robots.txt"}
+                    
+                    try:
+                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
+                            if response.status == 200:
+                                content = await response.text()
+                                links = []
+                                
+                                if depth_level < depth:
+                                    soup = BeautifulSoup(content, 'html.parser')
+                                    base_url = urlparse(url)
+                                    base_domain = f"{base_url.scheme}://{base_url.netloc}"
+                                    
+                                    for link in soup.find_all('a', href=True):
+                                        href = link['href'].strip()
+                                        # Skip fragments, javascript, mailto, tel
+                                        if href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                                            continue
+                                        # Make relative URLs absolute
+                                        if not href.startswith(('http://', 'https://')):
+                                            href = urljoin(base_domain, href)
+                                        # Validate URL
+                                        parsed_href = urlparse(href)
+                                        if not parsed_href.scheme or not parsed_href.netloc:
+                                            continue
+                                        target_domain = parsed_href.netloc
+                                        
+                                        # Apply domain restriction based on user selection
+                                        should_visit = False
+                                        if domain_restriction == "Stay in same domain":
+                                            should_visit = (target_domain == base_url.netloc)
+                                        elif domain_restriction == "Allow all domains":
+                                            should_visit = True
+                                        elif domain_restriction == "Custom domain list":
+                                            should_visit = any(domain in target_domain for domain in allowed_domains)
+                                        
+                                        if should_visit and href not in visited:
+                                            links.append((href, depth_level + 1))
+                                            
+                                return {
+                                    "url": url,
+                                    "content": content,
+                                    "status": "success",
+                                    "links": links
+                                }
+                            else:
+                                return {"url": url, "status": "error", "error": f"HTTP {response.status}"}
+                    except asyncio.TimeoutError:
+                        return {"url": url, "status": "error", "error": "Request timed out"}
+                except Exception as e:
+                    return {"url": url, "status": "error", "error": str(e)}
+        
+            # Initial URL
+            visited.add(target_url)
+            current_batch = [(target_url, 0)]
+        
+            # Process URLs in batches with async execution
+            while current_batch and len(visited) < max_pages:
+                status_text.text(f"Crawling batch of {len(current_batch)} URLs...")
             
-            # Update progress
-            progress_bar.progress(min(len(visited) / max_pages, 1.0))
+                # Use asyncio for parallel processing
+                tasks = [fetch_url(url_info) for url_info in current_batch]
+                batch_results = await asyncio.gather(*tasks)
             
-            # Filter out URLs we've already visited
-            current_batch = []
-            for url, depth in next_batch:
-                if url not in visited and len(visited) < max_pages:
-                    visited.add(url)
-                    current_batch.append((url, depth))
-        # The code below had syntax errors - removing it as it's now handled in the parallel processing section
+                next_batch = []
+                for data in batch_results:
+                    if data["status"] == "success":
+                        results.append({"url": data["url"], "content": data["content"]})
+                        next_batch.extend(data["links"])
+                    else:
+                        errors.append(f"Error on {data['url']}: {data.get('error', 'Unknown error')}")
+            
+                # Update progress
+                progress_bar.progress(min(len(visited) / max_pages, 1.0))
+            
+                # Filter out URLs we've already visited
+                current_batch = []
+                for url, depth in next_batch:
+                    if url not in visited and len(visited) < max_pages:
+                        visited.add(url)
+                        current_batch.append((url, depth))
         
-        # Clear the progress indicators
-        status_text.empty()
-        progress_bar.empty()
-        
-        # Display errors if any
-        if errors:
-            with st.expander(f"Crawling Errors ({len(errors)})"):
-                for error in errors:
-                    st.warning(error)
-        
+            # Store results in cache if caching is enabled
+            if use_cache:
+                cache_key = get_cache_key(target_url, depth, max_pages, domain_restriction)
+                cache_crawl_results(cache_key, results)
+                
+            # Return the results
+            return results
     except Exception as e:
-        st.error(f"Error during crawl: {e}")
+        print(f"Error during crawl: {e}")
     
     return results
 
@@ -341,12 +358,95 @@ def deepseek_chat(messages, system_prompt="You are a helpful AI assistant.", tem
             else:
                 raise ValueError(f"Failed to call DeepSeek API after {retry_count} attempts: {e}")
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="AI Web Scraper", layout="wide", initial_sidebar_state="expanded")
+# --- Cache Implementation ---
+# Create a disk-based cache for storing crawl results
+import diskcache
+import os
+import hashlib
+
+# Create cache directory if it doesn't exist
+if not os.path.exists("cache"):
+    os.makedirs("cache")
+
+# Initialize disk cache
+cache = diskcache.Cache("cache")
+
+def get_cache_key(url, depth, max_pages, domain_restriction):
+    """Generate a unique cache key based on crawl parameters"""
+    key_string = f"{url}_{depth}_{max_pages}_{domain_restriction}"
+    return hashlib.md5(key_string.encode()).hexdigest()
+
+def cache_crawl_results(key, results):
+    """Store crawl results in cache"""
+    cache[key] = results
+    cache[f"{key}_timestamp"] = datetime.datetime.now()
+
+def get_cached_results(key):
+    """Retrieve crawl results from cache if available and not expired"""
+    if key in cache:
+        timestamp = cache.get(f"{key}_timestamp")
+        # Check if cache is less than 24 hours old
+        if timestamp and (datetime.datetime.now() - timestamp).total_seconds() < 86400:
+            return cache[key]
+    return None
+
+# --- Sentiment Analysis ---
+from textblob import TextBlob
+
+def analyze_sentiment(text):
+    """Analyze sentiment of text using TextBlob"""
+    analysis = TextBlob(text)
+    # Return polarity (-1 to 1) and subjectivity (0 to 1)
+    return {
+        "polarity": analysis.sentiment.polarity,
+        "subjectivity": analysis.sentiment.subjectivity,
+        "sentiment": "positive" if analysis.sentiment.polarity > 0.1 else 
+                   "negative" if analysis.sentiment.polarity < -0.1 else "neutral"
+    }
+
+# --- URL Health Monitoring ---
+def check_url_health(url):
+    """Check if a URL is healthy and responsive"""
+    try:
+        start_time = time.time()
+        response = requests.head(url, timeout=5)
+        response_time = time.time() - start_time
+        return {
+            "status_code": response.status_code,
+            "response_time": response_time,
+            "is_healthy": 200 <= response.status_code < 400,
+            "headers": dict(response.headers)
+        }
+    except Exception as e:
+        return {
+            "status_code": None,
+            "response_time": None,
+            "is_healthy": False,
+            "error": str(e)
+        }
+
+st.set_page_config(page_title="NeoScraper AI", layout="wide", initial_sidebar_state="expanded", 
+                 menu_items={
+                     'Get Help': 'https://github.com/yourusername/neoscraper',
+                     'Report a bug': 'https://github.com/yourusername/neoscraper/issues',
+                     'About': 'NeoScraper AI - Advanced web scraping with AI analysis'
+                 })
 
 # Initialize theme in session state if not already present
 if 'theme' not in st.session_state:
-    st.session_state.theme = "Dark"  # Default to Dark theme
+    st.session_state.theme = "Futuristic"  # Default to Futuristic theme
+
+# Sidebar with futuristic styling
+st.sidebar.markdown('<h1 class="main-header">NeoScraper AI</h1>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+
+# Theme selector with new futuristic option
+theme = st.sidebar.radio("Select Theme", ["Futuristic", "Dark", "Light", "Blue"], index=0)
+if theme != st.session_state.theme:
+    st.session_state.theme = theme
+    st.experimental_rerun()
+    
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # Define CSS for different themes
 dark_theme = """
@@ -384,6 +484,149 @@ blue_theme = """
 </style>
 """
 
+# New futuristic theme with glassmorphism and neon effects
+futuristic_theme = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
+
+.stApp {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e) !important;
+    background-size: 400% 400% !important;
+    animation: gradient 15s ease infinite !important;
+    font-family: 'Orbitron', sans-serif !important;
+}
+
+@keyframes gradient {
+    0% { background-position: 0% 50% !important; }
+    50% { background-position: 100% 50% !important; }
+    100% { background-position: 0% 50% !important; }
+}
+
+.card {
+    background: rgba(25, 25, 35, 0.7) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #e0f7fa !important;
+    margin-bottom: 20px !important;
+    padding: 20px !important;
+}
+
+.main-header {
+    color: #80deea !important;
+    text-shadow: 0 0 10px rgba(128, 222, 234, 0.7), 0 0 20px rgba(128, 222, 234, 0.5) !important;
+    font-weight: 700 !important;
+    font-family: 'Orbitron', sans-serif !important;
+    letter-spacing: 2px !important;
+}
+
+.stTextInput>div>div>input {
+    background-color: rgba(30, 30, 40, 0.8) !important;
+    color: #e0f7fa !important;
+    border: 1px solid rgba(128, 222, 234, 0.5) !important;
+    border-radius: 8px !important;
+}
+
+.stSelectbox>div>div>div {
+    background-color: rgba(30, 30, 40, 0.8) !important;
+    color: #e0f7fa !important;
+    border: 1px solid rgba(128, 222, 234, 0.5) !important;
+    border-radius: 8px !important;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    background-color: rgba(25, 25, 35, 0.5) !important;
+    border-radius: 8px !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #80deea !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: rgba(128, 222, 234, 0.2) !important;
+    border-bottom: 2px solid #80deea !important;
+}
+
+.stMarkdown {
+    color: #e0f7fa !important;
+}
+
+.stDataFrame {
+    color: #e0f7fa !important;
+}
+
+.stButton>button {
+    background: linear-gradient(45deg, #00bcd4, #80deea) !important;
+    color: #0f2027 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 10px rgba(0, 188, 212, 0.5) !important;
+    transition: all 0.3s ease !important;
+    font-family: 'Orbitron', sans-serif !important;
+    font-weight: 500 !important;
+    letter-spacing: 1px !important;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 0 15px rgba(0, 188, 212, 0.8) !important;
+}
+
+.stExpander {
+    background-color: rgba(25, 25, 35, 0.7) !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(128, 222, 234, 0.3) !important;
+    color: #e0f7fa !important;
+}
+
+.stRadio>div {
+    color: #e0f7fa !important;
+}
+
+.stSidebar .stButton>button {
+    background: linear-gradient(45deg, #00bcd4, #80deea) !important;
+    color: #0f2027 !important;
+    border-radius: 8px !important;
+}
+
+/* Custom progress bar */
+.stProgress > div > div > div > div {
+    background-color: #00bcd4 !important;
+    background: linear-gradient(90deg, #00bcd4, #80deea) !important;
+    box-shadow: 0 0 10px rgba(0, 188, 212, 0.7) !important;
+}
+
+/* Custom sidebar */
+.css-1d391kg, .css-12oz5g7 {
+    background: rgba(15, 15, 25, 0.9) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Custom metric */
+.stMetric {
+    background: rgba(25, 25, 35, 0.7) !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    border: 1px solid rgba(128, 222, 234, 0.3) !important;
+}
+
+/* Pulsing effect for important elements */
+.pulse {
+    animation: pulse 2s infinite !important;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7) !important; }
+    70% { box-shadow: 0 0 0 10px rgba(0, 188, 212, 0) !important; }
+    100% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0) !important; }
+}
+</style>
+"""
+
 # Apply theme based on session state
 if st.session_state.theme == "Dark":
     st.markdown(dark_theme, unsafe_allow_html=True)
@@ -391,16 +634,31 @@ elif st.session_state.theme == "Light":
     st.markdown(light_theme, unsafe_allow_html=True)
 elif st.session_state.theme == "Blue":
     st.markdown(blue_theme, unsafe_allow_html=True)
+elif st.session_state.theme == "Futuristic":
+    st.markdown(futuristic_theme, unsafe_allow_html=True)
     st.title("Settings")
     st.markdown('<div class="card">', unsafe_allow_html=True)
     
-    # Theme settings
-    st.subheader("Theme Settings")
+    # Cache settings with futuristic styling
+    st.markdown('<h3 class="main-header">Cache Settings</h3>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
     
-    # Store theme preference in session state
-    theme = st.selectbox("Select Theme", ["Light", "Dark", "Blue"], 
-                       index=["Light", "Dark", "Blue"].index(st.session_state.theme),
-                       key="theme_select")
+    with col1:
+        if st.button("🧹 Clear Session Cache"):
+            # Clear session state for cached data
+            for key in ["crawl_results", "pages_text", "technical_report", "summaries", "qa_results"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.success("Session cache cleared successfully!")
+    
+    with col2:
+        if st.button("🗑️ Clear Disk Cache"):
+            # Clear disk cache
+            try:
+                cache.clear()
+                st.success("Disk cache cleared successfully!")
+            except Exception as e:
+                st.error(f"Error clearing disk cache: {e}")
     
     # Add color preview boxes
     col1, col2, col3 = st.columns(3)
@@ -417,9 +675,22 @@ elif st.session_state.theme == "Blue":
         <div style="background-color: #E3F2FD; color: #0D47A1; padding: 10px; border-radius: 5px; text-align: center;">Blue</div>
         """, unsafe_allow_html=True)
     
-    if st.button("Apply Theme", key="apply_theme_btn"):
-        st.session_state.theme = theme
-        st.rerun()
+    # Input form with futuristic styling
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    with st.form(key="scraper_form"):
+        st.markdown('<h3 class="main-header">Crawl Settings</h3>', unsafe_allow_html=True)
+        
+        # Theme settings
+        st.subheader("Theme Settings")
+        
+        # Store theme preference in session state
+        theme = st.selectbox("Select Theme", ["Light", "Dark", "Blue"], 
+                           index=["Light", "Dark", "Blue"].index(st.session_state.theme),
+                           key="theme_select")
+        
+        if st.button("Apply Theme", key="apply_theme_btn"):
+            st.session_state.theme = theme
+            st.rerun()
     
     # API Key management
     st.subheader("API Keys")
@@ -441,29 +712,63 @@ system_prompts = {
 # Add a sidebar for better navigation
 st.sidebar.title("Navigation")
 
-# Theme toggle in sidebar
-st.sidebar.markdown("### Theme")
-col1, col2, col3 = st.sidebar.columns([1, 1, 1])
-with col1:
-    dark_btn = st.sidebar.button("🌙 Dark" if st.session_state.theme != "Dark" else "🌙 Dark ✓", key="dark_theme_btn", use_container_width=True)
-    if dark_btn:
-        st.session_state.theme = "Dark"
-        st.rerun()
-with col2:
-    light_btn = st.sidebar.button("☀️ Light" if st.session_state.theme != "Light" else "☀️ Light ✓", key="light_theme_btn", use_container_width=True)
-    if light_btn:
-        st.session_state.theme = "Light"
-        st.rerun()
-with col3:
-    blue_btn = st.sidebar.button("🔵 Blue" if st.session_state.theme != "Blue" else "🔵 Blue ✓", key="blue_theme_btn", use_container_width=True)
-    if blue_btn:
-        st.session_state.theme = "Blue"
-        st.rerun()
+# Navigation with futuristic styling
+st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+st.sidebar.markdown('<h3 class="main-header">Navigation</h3>', unsafe_allow_html=True)
+page = st.sidebar.radio("Go to", ["Scraper", "Analytics", "Settings"])
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-page = st.sidebar.radio("Go to", ["Web Scraper", "About", "Settings"])
+# Main content based on navigation
+if page == "Analytics":
+    st.markdown('<h1 class="main-header">Analytics Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    
+    if st.session_state.get("crawl_results"):
+        # URL Health Monitoring
+        st.markdown('<h3 class="main-header">URL Health Monitoring</h3>', unsafe_allow_html=True)
+        
+        # Select URLs to check health
+        urls_to_check = [result['url'] for result in st.session_state.crawl_results[:10]]  # Limit to first 10 URLs
+        selected_urls = st.multiselect("Select URLs to check health status", urls_to_check, default=urls_to_check[:3])
+        
+        if st.button("🔍 Check URL Health"):
+            health_results = []
+            progress_bar = st.progress(0)
+            
+            for i, url in enumerate(selected_urls):
+                health_data = check_url_health(url)
+                health_results.append({
+                    "URL": url,
+                    "Status Code": health_data["status_code"],
+                    "Response Time (s)": health_data["response_time"],
+                    "Is Healthy": health_data["is_healthy"]
+                })
+                progress_bar.progress((i + 1) / len(selected_urls))
+            
+            # Display health results
+            health_df = pd.DataFrame(health_results)
+            st.session_state.health_results = health_df
+            
+            # Display metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                healthy_count = health_df[health_df["Is Healthy"] == True].shape[0]
+                st.metric("Healthy URLs", healthy_count, f"{healthy_count/len(health_df)*100:.1f}%")
+            with col2:
+                avg_response = health_df["Response Time (s)"].mean()
+                st.metric("Avg Response Time", f"{avg_response:.3f}s")
+            with col3:
+                status_ok = health_df[health_df["Status Code"] == 200].shape[0]
+                st.metric("Status 200 OK", status_ok, f"{status_ok/len(health_df)*100:.1f}%")
+            
+            # Display detailed health data
+            st.dataframe(health_df)
+    else:
+        st.info("Run a crawl first to access analytics features.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-if page == "About":
+elif page == "About":
     st.title("About This Web Scraper")
     st.markdown("""
     <div class="card">
@@ -481,8 +786,8 @@ if page == "About":
     </div>
     """, unsafe_allow_html=True)
 
-elif page == "Web Scraper":
-    st.title("Web Scraper with DeepSeek AI")
+elif page == "Scraper":
+    st.markdown('<h1 class="main-header pulse">NeoScraper AI</h1>', unsafe_allow_html=True)
     st.markdown("""
     <style>
     .main-header {
@@ -562,58 +867,29 @@ with st.expander("Advanced Crawling Parameters"):
         
         # Add robots.txt compliance option
         respect_robots = st.checkbox("Respect robots.txt", value=True, help="Follow robots.txt rules for ethical scraping")
+        
+        # Cache option
+        use_cache = st.checkbox("Use cached results if available", value=True, help="Use previously cached results to speed up repeated crawls")
 
-# Input for keywords (optional)
-keywords = st.text_input("Keywords (optional)", help="Comma-separated keywords to filter pages")
+# Input for keywords with futuristic styling
+keywords = st.text_input("🔍 Keywords (optional)", help="Comma-separated keywords to filter pages")
 
-# Operation mode selection
-operation = st.radio("Choose DeepSeek operation", ["Summarize each page", "Ask a question about crawl", "Custom prompt"], index=0)
+# Operation mode selection with futuristic styling
+st.markdown('<h4 class="main-header">AI Analysis Mode</h4>', unsafe_allow_html=True)
+operation_mode = st.radio("Select Operation Mode", ["✨ Summarize", "❓ Question & Answer"], index=0)
 
 # Question input if asking a question
 user_question = ""
-if operation == "Ask a question about crawl":
-    summary_language = "English"  # default
-    user_question = st.text_input("Your question about the crawled content")
+if operation_mode == "❓ Question & Answer":
+    question = st.text_input("🤔 Enter your question about the content:")
 
 # Custom prompt input
 custom_prompt = ""
 custom_language = "English"
-if operation == "Summarize each page":
+if operation_mode == "✨ Summarize":
     summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
     summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
     summary_temperature = 0.7  # Default temperature for summaries
-
-if operation == "Custom prompt": 
-    # Language option
-    custom_language = st.selectbox("Response Language", ["English", "Hebrew"], index=0)
-    with st.expander("Custom Prompt Configuration", expanded=True):
-        st.markdown("""### Custom Prompt Guidelines
-        - Use `{content}` as a placeholder for the page content
-        - Use `{url}` as a placeholder for the page URL
-        - Keep prompts clear and specific for best results
-        """)
-        
-        custom_prompt_template = st.text_area(
-            "Custom Prompt Template", 
-            """Analyze the following webpage content from {url}:
-
-{content}
-
-Provide a detailed analysis including:
-1. Main topic and purpose
-2. Key points or arguments
-3. Target audience
-4. Writing style and tone
-5. Credibility assessment""", 
-            height=200)
-        
-        # Choose summarization language
-        summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
-        
-        custom_system_prompt = st.text_area(
-            "System Prompt (Optional)", 
-            """You are an expert web content analyst. Analyze the provided web content thoroughly and provide insightful, accurate analysis. Be objective and focus on the facts presented in the content.""", 
-            height=100)
 
 # DeepSeek API Key - Using Streamlit secrets management
 # For local development, you can use st.secrets or environment variables
@@ -626,14 +902,21 @@ except:
     DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
     
     # If no API key found, show input field
-    if not DEEPSEEK_API_KEY:
-        DEEPSEEK_API_KEY = st.text_input("DeepSeek API Key", type="password", 
-                                       help="Enter your DeepSeek API key. This will not be stored permanently.")
-        if not DEEPSEEK_API_KEY:
-            st.warning("Please enter a DeepSeek API key to use the AI features.")
+    # API Key management with futuristic styling
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<h3 class="main-header">API Keys</h3>', unsafe_allow_html=True)
+    
+    # DeepSeek API Key
+    api_key = st.text_input("DeepSeek API Key", value=DEEPSEEK_API_KEY if DEEPSEEK_API_KEY else "", type="password")
+    if st.button("💾 Save API Key"):
+        # In a real app, you'd save this securely. For demo, we'll just update the session state
+        st.session_state.deepseek_api_key = api_key
+        st.success("API Key saved!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Scrape Button ---
 st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<h3 class="main-header">Start Scraping</h3>', unsafe_allow_html=True)
 col1, col2 = st.columns([3, 1])
 with col1:
     start_button = st.button("🚀 Start Scraping", use_container_width=True)
@@ -652,13 +935,14 @@ if clear_results:
     
     # Display visualizations if we have results
 if st.session_state.crawl_results:
-    with st.expander("📊 Data Visualizations", expanded=True):
-        st.subheader("Crawl Analysis")
+    with st.expander("📊 Data Visualizations"):
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<h2 class="main-header">Crawl Analysis</h2>', unsafe_allow_html=True)
         
-        # Create tabs for different visualizations
-        viz_tab1, viz_tab2, viz_tab3 = st.tabs(["Page Structure", "Link Graph", "Content Analysis"])
+        # Create tabs for different visualizations with futuristic styling
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Crawled Pages", "📝 Content", "⚙️ Technical Report", "😊 Sentiment Analysis", "🧠 AI Analysis"])
         
-        with viz_tab1:
+        with tab1:
             # Create a DataFrame for element counts across pages
             element_data = []
             for page in st.session_state.crawl_results:
@@ -687,119 +971,23 @@ if st.session_state.crawl_results:
                 # Show the data table
                 st.dataframe(element_summary)
         
-        with viz_tab2:
-            # Create a simple network visualization of pages and links
-            st.write("Page Connectivity Graph")
+        with tab5:
+            # AI analysis
+            st.write("AI Analysis")
             
-            # Extract links between pages
-            nodes = set()
-            edges = []
+            # Display crawl errors if any with futuristic styling
+            if "errors" in st.session_state and st.session_state.errors:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                with st.expander(f"⚠️ Crawling Errors ({len(st.session_state.errors)})"):
+                    st.json(st.session_state.errors)
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            for page in st.session_state.crawl_results:
-                page_url = page["url"]
-                nodes.add(page_url)
-                
-                # Parse HTML to find links
-                soup = BeautifulSoup(page["content"], "html.parser")
-                for link in soup.find_all("a", href=True):
-                    href = link["href"]
-                    if href.startswith("http"):
-                        target = href
-                    else:
-                        base_url = urlparse(page_url)
-                        target = f"{base_url.scheme}://{base_url.netloc}{href if href.startswith('/') else '/' + href}"
-                    
-                    # Only include links to pages we've crawled
-                    if target in nodes:
-                        edges.append((page_url, target))
-            
-            # Create a simple visualization using matplotlib
-            if edges:
-                import networkx as nx
-                G = nx.DiGraph()
-                for edge in edges:
-                    G.add_edge(edge[0], edge[1])
-                
-                # Generate node positions
-                pos = nx.spring_layout(G)
-                
-                # Create the plot
-                fig, ax = plt.subplots(figsize=(10, 8))
-                nx.draw(G, pos, with_labels=False, node_size=500, node_color="skyblue", 
-                       font_size=10, font_weight="bold", arrowsize=15, ax=ax)
-                
-                # Add labels separately for better readability
-                labels = {}
-                for node in G.nodes():
-                    parsed = urlparse(node)
-                    labels[node] = parsed.netloc + parsed.path[:15] + "..." if len(parsed.path) > 15 else parsed.path
-                
-                nx.draw_networkx_labels(G, pos, labels=labels)
-                plt.title("Page Link Network")
-                st.pyplot(fig)
-                
-                # Show statistics
-                st.metric("Total Pages", len(nodes))
-                st.metric("Total Links", len(edges))
+            # Display AI analysis results
+            if "summaries" in st.session_state:
+                st.dataframe(st.session_state.summaries)
             else:
-                st.info("Not enough linked pages found in the crawl to generate a graph.")
-        
-        with viz_tab3:
-            # Content analysis - word frequency, sentiment, etc.
-            st.write("Content Analysis")
-            
-            # Extract text from all pages
-            all_text = ""
-            for page in st.session_state.crawl_results:
-                if "text" in page:
-                    all_text += page["text"] + " "
-            
-            if all_text:
-                # Word frequency analysis
-                from collections import Counter
-                import re
-                
-                # Clean and tokenize text
-                words = re.findall(r'\b\w+\b', all_text.lower())
-                
-                # Remove common stop words
-                stop_words = set(['the', 'to', 'and', 'a', 'in', 'it', 'is', 'I', 'that', 'had', 'on', 'for', 'were', 'was', 'of', 'or', 'with'])
-                filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
-                
-                # Count word frequencies
-                word_counts = Counter(filtered_words).most_common(20)
-                
-                # Create DataFrame for visualization
-                df_words = pd.DataFrame(word_counts, columns=['word', 'count'])
-                
-                # Create bar chart
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x="count", y="word", data=df_words, palette="coolwarm")
-                plt.title("Top 20 Words Across All Pages")
-                plt.tight_layout()
-                st.pyplot(fig)
-                
-                # Show the data table
-                st.dataframe(df_words)
-                
-                # Generate a word cloud if available
-                try:
-                    from wordcloud import WordCloud
-                    
-                    # Create and generate a word cloud image
-                    wordcloud = WordCloud(width=800, height=400, background_color='white', 
-                                         max_words=150, contour_width=3, contour_color='steelblue').generate(' '.join(filtered_words))
-                    
-                    # Display the generated image
-                    fig, ax = plt.subplots(figsize=(10, 5))
-                    ax.imshow(wordcloud, interpolation='bilinear')
-                    ax.axis("off")
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                except ImportError:
-                    st.info("Install WordCloud package to enable word cloud visualization.")
-            else:
-                st.info("No text content available for analysis.")
+                st.info("No AI analysis results available.")
+    
     # This line was causing issues - removing it
 
 if start_button:
@@ -810,19 +998,24 @@ if start_button:
         st.info("Starting crawl with crawl4ai...")
         # --- Crawl4ai usage (placeholder) ---
         try:
-            # Example: crawl4ai.crawl(url, depth=crawl_depth)
-            # Replace with actual crawl4ai usage
-            st.write(f"Crawling {target_url} to depth {crawl_depth}...")
-            crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
-                                      custom_domains, user_agent, max_workers, respect_robots)
+            # Using our async crawler implementation with futuristic UI
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown(f"<h3 class='main-header'>Crawling {target_url} to depth {crawl_depth}...</h3>", unsafe_allow_html=True)
+            
+            # Show a futuristic progress animation
+            with st.spinner("Initializing crawl process..."):
+                crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
+                                              custom_domains, user_agent, max_workers, respect_robots, use_cache)
             if crawl_results:
-                st.success(f"Crawling complete! {len(crawl_results)} pages fetched.")
+                st.success(f"✅ Crawling complete! {len(crawl_results)} pages fetched.")
+                st.markdown('</div>', unsafe_allow_html=True)
                 # Store results in session state
                 st.session_state.crawl_results = crawl_results
             else:
                 st.error("No pages were fetched. Check the URL or crawl parameters.")
         except Exception as e:
-            st.error(f"Crawling failed: {e}")
+            st.error(f"❌ Error during crawling: {str(e)}")
+            st.markdown('</div>', unsafe_allow_html=True)
             crawl_results = []
         # --- DeepSeek API usage ---
         if crawl_results:
@@ -833,97 +1026,99 @@ if start_button:
 
             st.info("Sending data to DeepSeek API...")
 
-            if operation == "Summarize each page":
-                st.subheader("Processing Summaries...")
+            # Perform AI analysis based on operation mode with futuristic styling
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<h3 class="main-header">AI Analysis</h3>', unsafe_allow_html=True)
+            
+            if operation_mode == "✨ Summarize":
+                with st.spinner("Generating AI summaries..."):
+                    # Define temperature for summaries if not already defined
+                    if 'summary_temperature' not in locals():
+                        summary_temperature = 0.7
 
-                # Define temperature for summaries if not already defined
-                if 'summary_temperature' not in locals():
-                    summary_temperature = 0.7
+                    # Helper to build prompt for a page
+                    def build_summary_prompt(page_text, page_url):
+                        base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
+                        if summary_language == "Hebrew":
+                            base_prompt += "\n\nPlease respond in Hebrew."
+                        return base_prompt
 
-                # Helper to build prompt for a page
-                def build_summary_prompt(page_text, page_url):
-                    base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
-                    if summary_language == "Hebrew":
-                        base_prompt += "\n\nPlease respond in Hebrew."
-                    return base_prompt
-
-                # Process pages with progress tracking
-                summaries = []
-                
-                # Add a download button for the crawled data
-                if st.session_state.crawl_results:
-                    crawl_data_json = json.dumps(st.session_state.crawl_results, indent=2)
-                    st.download_button(
-                        label="📥 Download Raw Crawl Data (JSON)",
-                        data=crawl_data_json,
-                        file_name="crawl_data.json",
-                        mime="application/json"
-                    )
-                
-                # Create and display progress bar
-                progress_text = "Preparing to summarize pages..."
-                my_bar = st.progress(0, text=progress_text)
-                
-                # Process each page one by one
-                total_pages = len(crawl_results)
-                for i, page in enumerate(crawl_results):
-                    # Update progress
-                    progress_text = f"Summarizing page {i+1} of {total_pages}"
-                    progress_value = float(i) / float(total_pages)
-                    my_bar.progress(progress_value, text=progress_text)
+                    # Process pages with progress tracking
+                    summaries = []
                     
-                    # Extract text content (limit to 4000 chars)
-                    text = page["text"][:4000] if "text" in page else ""
-                    
-                    # Build the prompt
-                    prompt_text = build_summary_prompt(text, page["url"])
-                    
-                    # Call DeepSeek API with proper error handling
-                    try:
-                        # Make the API call
-                        summary = deepseek_chat(
-                            [{"role": "user", "content": prompt_text}],
-                            system_prompt=system_prompts[summary_style],
-                            temperature=summary_temperature
+                    # Add a download button for the crawled data
+                    if st.session_state.crawl_results:
+                        crawl_data_json = json.dumps(st.session_state.crawl_results, indent=2)
+                        st.download_button(
+                            label="📥 Download Raw Crawl Data (JSON)",
+                            data=crawl_data_json,
+                            file_name="crawl_data.json",
+                            mime="application/json"
                         )
-                        summaries.append(summary)
-                    except Exception as e:
-                        # Handle any errors
-                        error_message = f"Error processing summary: {str(e)}"
-                        summaries.append(error_message)
-                        st.error(f"Error on page {i+1}: {str(e)}")
-                
-                # Complete the progress bar
-                my_bar.progress(1.0, text="Summarization complete!")
-                time.sleep(0.5)  # Brief pause
-                my_bar.empty()
+                    
+                    # Create and display progress bar
+                    progress_text = "Preparing to summarize pages..."
+                    my_bar = st.progress(0, text=progress_text)
+                    
+                    # Process each page one by one
+                    total_pages = len(crawl_results)
+                    for i, page in enumerate(crawl_results):
+                        # Update progress
+                        progress_text = f"Summarizing page {i+1} of {total_pages}"
+                        progress_value = float(i) / float(total_pages)
+                        my_bar.progress(progress_value, text=progress_text)
+                        
+                        # Extract text content (limit to 4000 chars)
+                        text = page["text"][:4000] if "text" in page else ""
+                        
+                        # Build the prompt
+                        prompt_text = build_summary_prompt(text, page["url"])
+                        
+                        # Call DeepSeek API with proper error handling
+                        try:
+                            # Make the API call
+                            summary = deepseek_chat(
+                                [{"role": "user", "content": prompt_text}],
+                                system_prompt=system_prompts[summary_style],
+                                temperature=summary_temperature
+                            )
+                            summaries.append(summary)
+                        except Exception as e:
+                            # Handle any errors
+                            error_message = f"Error processing summary: {str(e)}"
+                            summaries.append(error_message)
+                            st.error(f"Error on page {i+1}: {str(e)}")
+                    
+                    # Complete the progress bar
+                    my_bar.progress(1.0, text="Summarization complete!")
+                    time.sleep(0.5)  # Brief pause
+                    my_bar.empty()
 
-                # Display summaries
-                st.subheader("Page Summaries")
-                for i, (page, summary_text) in enumerate(zip(crawl_results, summaries)):
-                    with st.expander(f"Summary for {page['url']}"):
-                        if isinstance(summary_text, str) and summary_text.startswith("Error"):
-                            st.error(summary_text)
-                        else:
-                            st.write(summary_text)
-            else:  # Ask a question about crawl
-                if not user_question:
-                    st.warning("Please enter a question to ask about the crawl.")
-                else:
-                    # Concatenate texts with limit
-                    combined_text = "\n---\n".join([p["text"] for p in crawl_results])
-                    combined_text = combined_text[:12000]  # truncate to stay within token limit
-                    prompt = (
-                        f"You are provided with combined text from multiple web pages. "
-                        f"Answer the following question based on this content.\n\n"
-                        f"### Question:\n{user_question}\n\n### Content:\n{combined_text}"
-                    )
-                    result = deepseek_chat([
-                        {"role": "user", "content": prompt}
-                    ])
-                    answer = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
-                    st.subheader("DeepSeek Answer")
-                    st.write(answer)
+                    # Display summaries
+                    st.subheader("Page Summaries")
+                    for i, (page, summary_text) in enumerate(zip(crawl_results, summaries)):
+                        with st.expander(f"Summary for {page['url']}"):
+                            if isinstance(summary_text, str) and summary_text.startswith("Error"):
+                                st.error(summary_text)
+                            else:
+                                st.write(summary_text)
+            elif operation_mode == "❓ Question & Answer":
+                if question:
+                    with st.spinner(f"Answering: {question}"):
+                        # Concatenate texts with limit
+                        combined_text = "\n---\n".join([p["text"] for p in crawl_results])
+                        combined_text = combined_text[:12000]  # truncate to stay within token limit
+                        prompt = (
+                            f"You are provided with combined text from multiple web pages. "
+                            f"Answer the following question based on this content.\n\n"
+                            f"### Question:\n{question}\n\n### Content:\n{combined_text}"
+                        )
+                        result = deepseek_chat([
+                            {"role": "user", "content": prompt}
+                        ])
+                        answer = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
+                        st.subheader("DeepSeek Answer")
+                        st.write(answer)
 
             # Display crawl results for reference
             st.subheader("Technical Reports")
@@ -968,7 +1163,7 @@ if start_button:
             
             # Export DeepSeek results
             with col2:
-                if operation == "Summarize each page" and "summaries" in locals():
+                if operation_mode == "✨ Summarize" and "summaries" in locals():
                     # Export summaries
                     summary_data = {page["url"]: summary for page, summary in zip(crawl_results, summaries)}
                     json_summary = json.dumps(summary_data, indent=2)
@@ -976,9 +1171,9 @@ if start_button:
                     filename_summary = f"summaries_{timestamp}.json"
                     href_summary = f'<a href="data:application/json;base64,{b64_summary}" download="{filename_summary}">Download Summaries (JSON)</a>'
                     st.markdown(href_summary, unsafe_allow_html=True)
-                elif operation == "Ask a question about crawl" and "answer" in locals():
+                elif operation_mode == "❓ Question & Answer" and "answer" in locals():
                     # Export Q&A
-                    qa_data = {"question": user_question, "answer": answer}
+                    qa_data = {"question": question, "answer": answer}
                     json_qa = json.dumps(qa_data, indent=2)
                     b64_qa = base64.b64encode(json_qa.encode()).decode()
                     filename_qa = f"qa_result_{timestamp}.json"
