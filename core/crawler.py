@@ -5,6 +5,7 @@ Core crawling functionality for the web scraper.
 import asyncio
 import aiohttp
 import streamlit as st
+import time
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import urllib.robotparser
@@ -12,22 +13,89 @@ import nest_asyncio
 
 from config.settings import DEFAULT_USER_AGENT
 from utils.cache import get_cache_key, cache_crawl_results, get_cached_results
+from utils.error_handler import CrawlException, global_error_handler, handle_errors
+from utils.logger import get_logger, scraper_logger
+from utils.validators import URLValidator, ParameterValidator
 
 # Apply nest_asyncio to make asyncio work with Streamlit
 nest_asyncio.apply()
 
+# Get logger for this module
+logger = get_logger("crawler")
 
+
+@handle_errors(exceptions=(CrawlException, Exception), default_return=[])
 def perform_crawl(target_url: str, depth: int = 1, max_pages: int = 20, timeout: int = 10, 
                 domain_restriction: str = "Stay in same domain", custom_domains: str = "", 
                 user_agent: str = DEFAULT_USER_AGENT, max_workers: int = 5, 
                 respect_robots: bool = True, use_cache: bool = True):
-    """Synchronous wrapper for async crawl function"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    return loop.run_until_complete(
-        perform_crawl_async(target_url, depth, max_pages, timeout, domain_restriction, 
-                          custom_domains, user_agent, max_workers, respect_robots, use_cache)
+    """
+    Synchronous wrapper for async crawl function with validation and error handling
+    
+    Args:
+        target_url: URL to start crawling from
+        depth: How deep to crawl (1-10)
+        max_pages: Maximum number of pages to crawl (1-1000)
+        timeout: Request timeout in seconds (5-300)
+        domain_restriction: Domain restriction policy
+        custom_domains: Custom domains list for restriction
+        user_agent: User agent string
+        max_workers: Number of concurrent workers (1-50)
+        respect_robots: Whether to respect robots.txt
+        use_cache: Whether to use caching
+        
+    Returns:
+        List of crawled pages with URL and content
+        
+    Raises:
+        CrawlException: If crawling fails due to validation or other errors
+    """
+    # Validate crawl parameters
+    validation_result = ParameterValidator.validate_crawl_params(
+        target_url, depth, max_pages, timeout, max_workers, user_agent
     )
+    
+    if not validation_result.is_valid:
+        error_msg = f"Invalid crawl parameters: {'; '.join(validation_result.errors)}"
+        logger.error(error_msg)
+        raise CrawlException(error_msg, {"validation_errors": validation_result.errors})
+    
+    # Log warnings if any
+    for warning in validation_result.warnings:
+        logger.warning(f"Crawl parameter warning: {warning}")
+    
+    # Use validated parameters
+    validated_params = validation_result.value
+    
+    # Log crawl start
+    scraper_logger.log_crawl_start(validated_params['url'], depth, max_pages)
+    start_time = time.time()
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            perform_crawl_async(
+                validated_params['url'], depth, max_pages, timeout, 
+                domain_restriction, custom_domains, validated_params['user_agent'], 
+                max_workers, respect_robots, use_cache
+            )
+        )
+        
+        # Log crawl completion
+        duration = time.time() - start_time
+        scraper_logger.log_crawl_complete(validated_params['url'], len(result), duration)
+        
+        return result
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Crawl failed after {duration:.2f}s: {str(e)}")
+        raise CrawlException(f"Crawling failed: {str(e)}", {
+            "url": target_url,
+            "duration": duration,
+            "original_error": str(e)
+        })
 
 
 async def perform_crawl_async(target_url: str, depth: int = 1, max_pages: int = 20, timeout: int = 10, 

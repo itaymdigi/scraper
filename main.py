@@ -9,6 +9,14 @@ import datetime
 import io
 import csv
 
+# Initialize logging early
+from utils.logger import setup_logging, get_logger
+from utils.error_handler import global_error_handler
+
+# Setup logging with INFO level for production
+setup_logging(log_level="INFO", log_dir="logs")
+app_logger = get_logger("main")
+
 # Import our modules
 from config.settings import PAGE_TITLE, PAGE_ICON, LAYOUT, DEFAULT_PORT, DOMAIN_RESTRICTIONS
 from core.crawler import perform_crawl, html_to_text
@@ -520,185 +528,198 @@ def export_results(crawl_results):
 
 def main():
     """Main application function"""
-    setup_page_config()
-    
-    # Title and description
-    st.title("🕷️ Advanced Web Scraper & Analyzer")
-    st.markdown("A comprehensive tool for web crawling, analysis, and website blueprint generation.")
-    
-    # Sidebar configuration
-    config = create_sidebar()
-    
-    # Main content area
-    if not config['target_url']:
-        st.info("👈 Enter a URL in the sidebar to get started!")
-        return
-    
-    # URL validation
-    if not config['target_url'].startswith(('http://', 'https://')):
-        st.error("❌ Please enter a valid URL starting with http:// or https://")
-        return
-    
-    # Start crawling button
-    if st.button("🚀 Start Crawling", type="primary"):
-        with st.spinner("🕷️ Crawling website..."):
-            try:
-                # Perform crawl
-                crawl_results = perform_crawl(
-                    target_url=config['target_url'],
-                    depth=config['depth'],
-                    max_pages=config['max_pages'],
-                    timeout=config['timeout'],
-                    domain_restriction=config['domain_restriction'],
-                    custom_domains=config['custom_domains'],
-                    user_agent=config['user_agent'],
-                    max_workers=config['max_workers'],
-                    respect_robots=config['respect_robots'],
-                    use_cache=config['use_cache']
-                )
-                
-                if not crawl_results:
-                    st.error("❌ No pages were successfully crawled. Please check the URL and try again.")
+    try:
+        app_logger.info("Starting Advanced Web Scraper application")
+        setup_page_config()
+        
+        # Title and description
+        st.title("🕷️ Advanced Web Scraper & Analyzer")
+        st.markdown("A comprehensive tool for web crawling, analysis, and website blueprint generation.")
+        
+        # Sidebar configuration
+        config = create_sidebar()
+        app_logger.debug(f"Configuration loaded: {config['operation_mode']}")
+        
+        # Main content area
+        if not config['target_url']:
+            st.info("👈 Enter a URL in the sidebar to get started!")
+            return
+        
+        # URL validation
+        if not config['target_url'].startswith(('http://', 'https://')):
+            st.error("❌ Please enter a valid URL starting with http:// or https://")
+            return
+        
+        # Start crawling button
+        if st.button("🚀 Start Crawling", type="primary"):
+            with st.spinner("🕷️ Crawling website..."):
+                try:
+                    # Perform crawl
+                    crawl_results = perform_crawl(
+                        target_url=config['target_url'],
+                        depth=config['depth'],
+                        max_pages=config['max_pages'],
+                        timeout=config['timeout'],
+                        domain_restriction=config['domain_restriction'],
+                        custom_domains=config['custom_domains'],
+                        user_agent=config['user_agent'],
+                        max_workers=config['max_workers'],
+                        respect_robots=config['respect_robots'],
+                        use_cache=config['use_cache']
+                    )
+                    
+                    if not crawl_results:
+                        st.error("❌ No pages were successfully crawled. Please check the URL and try again.")
+                        return
+                    
+                    # Convert HTML to text for each page
+                    for page in crawl_results:
+                        page["text"] = html_to_text(page["content"])
+                    
+                    # Store results in session state
+                    st.session_state.crawl_results = crawl_results
+                    st.session_state.config = config
+                    
+                    st.success(f"✅ Successfully crawled {len(crawl_results)} pages!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Error during crawling: {str(e)}")
                     return
-                
-                # Convert HTML to text for each page
-                for page in crawl_results:
-                    page["text"] = html_to_text(page["content"])
-                
-                # Store results in session state
-                st.session_state.crawl_results = crawl_results
-                st.session_state.config = config
-                
-                st.success(f"✅ Successfully crawled {len(crawl_results)} pages!")
-                
-            except Exception as e:
-                st.error(f"❌ Error during crawling: {str(e)}")
-                return
-    
-    # Display results if available
-    if hasattr(st.session_state, 'crawl_results') and st.session_state.crawl_results:
-        crawl_results = st.session_state.crawl_results
-        config = st.session_state.config
         
-        # Display based on operation mode
-        if config['operation_mode'] == "📊 Technical Analysis":
-            display_technical_analysis(crawl_results)
-        
-        elif config['operation_mode'] == "🔍 Crawl Only":
-            st.subheader("📄 Crawled Pages")
-            for i, page in enumerate(crawl_results, 1):
-                with st.expander(f"{i}. {page['url']}"):
-                    st.write(f"**Content Preview:** {page['text'][:500]}...")
-        
-        elif config['operation_mode'] == "✨ Summarize":
-            # Check if API key is available
-            if not get_api_key():
-                st.error("❌ DeepSeek API key is required for summarization. Please enter your API key in the sidebar.")
-            else:
-                st.subheader("🧠 AI-Powered Summaries")
-                
-                with st.spinner("🤖 Generating AI summaries using DeepSeek..."):
-                    try:
-                        summaries = summarize_pages(
-                            crawl_results, 
-                            summary_style=config['summary_style'],
-                            summary_language=config['summary_language'],
-                            temperature=config['temperature']
-                        )
-                        
-                        # Display summaries
-                        st.success(f"✅ Generated {len(summaries)} summaries!")
-                        
-                        for i, (page, summary) in enumerate(zip(crawl_results, summaries), 1):
-                            with st.expander(f"📝 Summary {i}: {page['url']}", expanded=True):
-                                if isinstance(summary, str) and summary.startswith("Error"):
-                                    st.error(summary)
-                                else:
-                                    st.markdown(str(summary))
-                                    
-                                # Show original content preview
-                                with st.expander("👀 Original Content Preview"):
-                                    st.write(page['text'][:1000] + "..." if len(page['text']) > 1000 else page['text'])
-                        
-                        # Export summaries
-                        if st.button("📥 Export Summaries"):
-                            summary_data = []
-                            for page, summary in zip(crawl_results, summaries):
-                                summary_data.append({
-                                    "url": page["url"],
-                                    "summary": summary,
-                                    "style": config['summary_style'],
-                                    "language": config['summary_language']
-                                })
-                            
-                            summary_json = json.dumps(summary_data, indent=2, ensure_ascii=False)
-                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                            
-                            st.download_button(
-                                label="📥 Download Summaries (JSON)",
-                                data=summary_json,
-                                file_name=f"ai_summaries_{timestamp}.json",
-                                mime="application/json"
+        # Display results if available
+        if hasattr(st.session_state, 'crawl_results') and st.session_state.crawl_results:
+            crawl_results = st.session_state.crawl_results
+            config = st.session_state.config
+            
+            # Display based on operation mode
+            if config['operation_mode'] == "📊 Technical Analysis":
+                display_technical_analysis(crawl_results)
+            
+            elif config['operation_mode'] == "🔍 Crawl Only":
+                st.subheader("📄 Crawled Pages")
+                for i, page in enumerate(crawl_results, 1):
+                    with st.expander(f"{i}. {page['url']}"):
+                        st.write(f"**Content Preview:** {page['text'][:500]}...")
+            
+            elif config['operation_mode'] == "✨ Summarize":
+                # Check if API key is available
+                if not get_api_key():
+                    st.error("❌ DeepSeek API key is required for summarization. Please enter your API key in the sidebar.")
+                else:
+                    st.subheader("🧠 AI-Powered Summaries")
+                    
+                    with st.spinner("🤖 Generating AI summaries using DeepSeek..."):
+                        try:
+                            summaries = summarize_pages(
+                                crawl_results, 
+                                summary_style=config['summary_style'],
+                                summary_language=config['summary_language'],
+                                temperature=config['temperature']
                             )
-                        
-                    except Exception as e:
-                        st.error(f"❌ Error generating summaries: {str(e)}")
-        
-        elif config['operation_mode'] == "❓ Q&A with AI":
-            # Check if API key is available
-            if not get_api_key():
-                st.error("❌ DeepSeek API key is required for Q&A. Please enter your API key in the sidebar.")
-            elif not config['question']:
-                st.warning("❓ Please enter a question in the sidebar to get started.")
-            else:
-                st.subheader("🤖 AI Question & Answer")
+                            
+                            # Display summaries
+                            st.success(f"✅ Generated {len(summaries)} summaries!")
+                            
+                            for i, (page, summary) in enumerate(zip(crawl_results, summaries), 1):
+                                with st.expander(f"📝 Summary {i}: {page['url']}", expanded=True):
+                                    if isinstance(summary, str) and summary.startswith("Error"):
+                                        st.error(summary)
+                                    else:
+                                        st.markdown(str(summary))
+                                        
+                                    # Show original content preview
+                                    with st.expander("👀 Original Content Preview"):
+                                        st.write(page['text'][:1000] + "..." if len(page['text']) > 1000 else page['text'])
+                            
+                            # Export summaries
+                            if st.button("📥 Export Summaries"):
+                                summary_data = []
+                                for page, summary in zip(crawl_results, summaries):
+                                    summary_data.append({
+                                        "url": page["url"],
+                                        "summary": summary,
+                                        "style": config['summary_style'],
+                                        "language": config['summary_language']
+                                    })
+                                
+                                summary_json = json.dumps(summary_data, indent=2, ensure_ascii=False)
+                                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                                
+                                st.download_button(
+                                    label="📥 Download Summaries (JSON)",
+                                    data=summary_json,
+                                    file_name=f"ai_summaries_{timestamp}.json",
+                                    mime="application/json"
+                                )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Error generating summaries: {str(e)}")
+            
+            elif config['operation_mode'] == "❓ Q&A with AI":
+                # Check if API key is available
+                if not get_api_key():
+                    st.error("❌ DeepSeek API key is required for Q&A. Please enter your API key in the sidebar.")
+                elif not config['question']:
+                    st.warning("❓ Please enter a question in the sidebar to get started.")
+                else:
+                    st.subheader("🤖 AI Question & Answer")
+                    
+                    with st.spinner(f"🧠 Analyzing content and answering: '{config['question']}'"):
+                        try:
+                            answer = answer_question(crawl_results, config['question'])
+                            
+                            st.markdown("### 💬 Your Question:")
+                            st.info(config['question'])
+                            
+                            st.markdown("### 🤖 DeepSeek Answer:")
+                            if isinstance(answer, str) and answer.startswith("Error"):
+                                st.error(answer)
+                            else:
+                                st.markdown(str(answer))
+                            
+                            # Show sources
+                            st.markdown("### 📚 Sources Analyzed:")
+                            for i, page in enumerate(crawl_results, 1):
+                                st.write(f"{i}. {page['url']}")
+                            
+                            # Export Q&A
+                            if st.button("📥 Export Q&A"):
+                                qa_data = {
+                                    "question": config['question'],
+                                    "answer": answer,
+                                    "sources": [page["url"] for page in crawl_results],
+                                    "timestamp": datetime.datetime.now().isoformat()
+                                }
+                                
+                                qa_json = json.dumps(qa_data, indent=2, ensure_ascii=False)
+                                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                                
+                                st.download_button(
+                                    label="📥 Download Q&A (JSON)",
+                                    data=qa_json,
+                                    file_name=f"ai_qa_{timestamp}.json",
+                                    mime="application/json"
+                                )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Error answering question: {str(e)}")
+            
+            # Export options
+            export_results(crawl_results)
+            
+            # Raw results expander
+            with st.expander("📋 Show Raw Crawl Results"):
+                st.json(crawl_results)
                 
-                with st.spinner(f"🧠 Analyzing content and answering: '{config['question']}'"):
-                    try:
-                        answer = answer_question(crawl_results, config['question'])
-                        
-                        st.markdown("### 💬 Your Question:")
-                        st.info(config['question'])
-                        
-                        st.markdown("### 🤖 DeepSeek Answer:")
-                        if isinstance(answer, str) and answer.startswith("Error"):
-                            st.error(answer)
-                        else:
-                            st.markdown(str(answer))
-                        
-                        # Show sources
-                        st.markdown("### 📚 Sources Analyzed:")
-                        for i, page in enumerate(crawl_results, 1):
-                            st.write(f"{i}. {page['url']}")
-                        
-                        # Export Q&A
-                        if st.button("📥 Export Q&A"):
-                            qa_data = {
-                                "question": config['question'],
-                                "answer": answer,
-                                "sources": [page["url"] for page in crawl_results],
-                                "timestamp": datetime.datetime.now().isoformat()
-                            }
-                            
-                            qa_json = json.dumps(qa_data, indent=2, ensure_ascii=False)
-                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                            
-                            st.download_button(
-                                label="📥 Download Q&A (JSON)",
-                                data=qa_json,
-                                file_name=f"ai_qa_{timestamp}.json",
-                                mime="application/json"
-                            )
-                        
-                    except Exception as e:
-                        st.error(f"❌ Error answering question: {str(e)}")
-        
-        # Export options
-        export_results(crawl_results)
-        
-        # Raw results expander
-        with st.expander("📋 Show Raw Crawl Results"):
-            st.json(crawl_results)
+    except Exception as e:
+        app_logger.error(f"Application error: {str(e)}", exc_info=True)
+        st.error(f"❌ Application error: {str(e)}")
+        # Show error details to user
+        with st.expander("🔍 Error Details"):
+            st.text(str(e))
+            error_summary = global_error_handler.get_error_summary()
+            if error_summary['total_errors'] > 0:
+                st.json(error_summary)
 
 
 if __name__ == "__main__":

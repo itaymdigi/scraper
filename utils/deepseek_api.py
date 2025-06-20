@@ -7,6 +7,13 @@ import time
 import streamlit as st
 import os
 
+from utils.error_handler import APIException, global_error_handler, handle_errors
+from utils.logger import get_logger, scraper_logger
+from utils.validators import ParameterValidator
+
+# Get logger for this module
+logger = get_logger("deepseek_api")
+
 # Global variable for the API key
 DEEPSEEK_API_KEY = ""
 
@@ -36,51 +43,107 @@ def get_api_key():
     
     return DEEPSEEK_API_KEY
 
+@handle_errors(exceptions=(APIException, requests.RequestException), max_retries=2)
 def deepseek_chat(messages, system_prompt="You are a helpful AI assistant.", temperature=0.7, max_tokens=None, retry_count=3):
-    """Call the DeepSeek API for chat completion with retry logic."""
+    """
+    Call the DeepSeek API for chat completion with validation and error handling.
+    
+    Args:
+        messages: List of message dictionaries
+        system_prompt: System prompt for the AI
+        temperature: AI temperature (0.0-2.0)
+        max_tokens: Maximum tokens to generate
+        retry_count: Number of retries (deprecated, use global error handler)
+        
+    Returns:
+        AI response content
+        
+    Raises:
+        APIException: If API call fails or validation fails
+    """
     api_key = get_api_key()
     
     if not api_key:
-        raise ValueError("DeepSeek API key is required but not provided")
-        
+        raise APIException("DeepSeek API key is required but not provided")
+    
+    # Validate API parameters
+    validation_result = ParameterValidator.validate_ai_params(api_key, temperature, max_tokens)
+    if not validation_result.is_valid:
+        error_msg = f"Invalid API parameters: {'; '.join(validation_result.errors)}"
+        logger.error(error_msg)
+        raise APIException(error_msg, {"validation_errors": validation_result.errors})
+    
+    validated_params = validation_result.value
+    
     payload = {
         "model": "deepseek-chat",
         "messages": [
             {"role": "system", "content": system_prompt},
             *messages
         ],
-        "temperature": temperature
+        "temperature": validated_params['temperature']
     }
     
     # Add max_tokens if specified
-    if max_tokens:
-        payload["max_tokens"] = max_tokens
+    if validated_params['max_tokens']:
+        payload["max_tokens"] = validated_params['max_tokens']
     
-    # Add retry logic for API resilience
-    for attempt in range(retry_count):
-        try:
-            response = requests.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}"
-                },
-                json=payload,
-                timeout=30  # Add timeout for better error handling
-            )
-            
-            # Raise an exception for bad status codes (4xx or 5xx)
-            response.raise_for_status()
-            
-            return response.json()["choices"][0]["message"]["content"]
-            
-        except requests.exceptions.RequestException as e:
-            if attempt < retry_count - 1:
-                # Exponential backoff: wait 2^attempt seconds before retrying
-                wait_time = 2 ** attempt
-                time.sleep(wait_time)
-            else:
-                raise ValueError(f"Failed to call DeepSeek API after {retry_count} attempts: {e}")
+    start_time = time.time()
+    
+    try:
+        logger.debug(f"Making DeepSeek API call with {len(messages)} messages")
+        
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {validated_params['api_key']}"
+            },
+            json=payload,
+            timeout=30
+        )
+        
+        duration = time.time() - start_time
+        
+        # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
+        
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        
+        # Log successful API call
+        scraper_logger.log_api_call(
+            "DeepSeek", 
+            "chat/completions", 
+            "success", 
+            duration
+        )
+        
+        logger.info(f"DeepSeek API call successful in {duration:.2f}s")
+        return content
+        
+    except requests.exceptions.RequestException as e:
+        duration = time.time() - start_time
+        error_msg = f"DeepSeek API request failed: {str(e)}"
+        logger.error(error_msg)
+        
+        # Log failed API call
+        scraper_logger.log_api_call(
+            "DeepSeek", 
+            "chat/completions", 
+            "error", 
+            duration
+        )
+        
+        raise APIException(error_msg, {
+            "duration": duration,
+            "status_code": getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None,
+            "original_error": str(e)
+        })
+    except (KeyError, IndexError) as e:
+        error_msg = f"Invalid DeepSeek API response format: {str(e)}"
+        logger.error(error_msg)
+        raise APIException(error_msg, {"response_error": str(e)})
 
 def summarize_pages(crawl_results, summary_style="Professional", summary_language="English", temperature=0.7):
     """Summarize multiple pages using DeepSeek API"""
