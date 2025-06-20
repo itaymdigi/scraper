@@ -444,7 +444,7 @@ st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
 theme = st.sidebar.radio("Select Theme", ["Futuristic", "Dark", "Light", "Blue"], index=0)
 if theme != st.session_state.theme:
     st.session_state.theme = theme
-    st.experimental_rerun()
+    st.rerun()
     
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
@@ -675,38 +675,39 @@ elif st.session_state.theme == "Futuristic":
         <div style="background-color: #E3F2FD; color: #0D47A1; padding: 10px; border-radius: 5px; text-align: center;">Blue</div>
         """, unsafe_allow_html=True)
     
-    # Input form with futuristic styling
+    # Theme settings outside of form
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    with st.form(key="scraper_form"):
-        st.markdown('<h3 class="main-header">Crawl Settings</h3>', unsafe_allow_html=True)
-        
-        # Theme settings
-        st.subheader("Theme Settings")
-        
-        # Store theme preference in session state
-        theme = st.selectbox("Select Theme", ["Light", "Dark", "Blue"], 
-                           index=["Light", "Dark", "Blue"].index(st.session_state.theme),
-                           key="theme_select")
-        
-        if st.button("Apply Theme", key="apply_theme_btn"):
-            st.session_state.theme = theme
-            st.rerun()
+    st.markdown('<h3 class="main-header">Theme Settings</h3>', unsafe_allow_html=True)
+    
+    # Store theme preference in session state
+    theme_options = ["Futuristic", "Light", "Dark", "Blue"]
+    current_theme = st.session_state.theme if st.session_state.theme in theme_options else "Futuristic"
+    theme = st.selectbox("Select Theme", theme_options, 
+                       index=theme_options.index(current_theme),
+                       key="theme_select")
+    
+    if st.button("Apply Theme", key="apply_theme_btn"):
+        st.session_state.theme = theme
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # API Key management
     st.subheader("API Keys")
-
-st.title("🤖 AI-Powered Web Scraper")
-st.markdown("""
-A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
-""")
-
-# System prompts for different summarization styles
-system_prompts = {
-    "Default": "You are a helpful AI assistant. Your task is to summarize the provided web page content.",
-    "Concise (2-3 Sentences)": "You are an AI assistant. Summarize the provided web page content concisely, in 2-3 sentences.",
-    "Detailed (Key Points)": "You are an AI assistant. Provide a detailed summary of the web page content, covering main points, arguments, and conclusions.",
-    "Bullet Points": "You are an AI assistant. Summarize the web page content as a list of bullet points, highlighting the key information."
-}
+    
+    # DeepSeek API Key input
+    deepseek_key = st.text_input("DeepSeek API Key", type="password", 
+                                help="Enter your DeepSeek API key for AI analysis")
+    
+    if st.button("Save API Key"):
+        if deepseek_key:
+            # Save to session state (in production, save to secrets)
+            st.session_state.deepseek_api_key = deepseek_key
+            st.success("API Key saved successfully!")
+        else:
+            st.error("Please enter a valid API key")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- UI Inputs ---
 # Add a sidebar for better navigation
@@ -787,405 +788,398 @@ elif page == "About":
     """, unsafe_allow_html=True)
 
 elif page == "Scraper":
-    st.markdown('<h1 class="main-header pulse">NeoScraper AI</h1>', unsafe_allow_html=True)
+    st.title("🤖 AI-Powered Web Scraper")
     st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1E88E5;
-        text-align: center;
-        margin-bottom: 1rem;
+    A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
+    """)
+
+    # System prompts for different summarization styles
+    system_prompts = {
+        "Default": "You are a helpful AI assistant. Your task is to summarize the provided web page content.",
+        "Concise (2-3 Sentences)": "You are an AI assistant. Summarize the provided web page content concisely, in 2-3 sentences.",
+        "Detailed (Key Points)": "You are an AI assistant. Provide a detailed summary of the web page content, covering main points, arguments, and conclusions.",
+        "Bullet Points": "You are an AI assistant. Summarize the web page content as a list of bullet points, highlighting the key information."
     }
-    .card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-    }
-    </style>
-    
-    <div class="main-header">🤖 AI-Powered Web Scraper</div>
-    """, unsafe_allow_html=True)
 
-# Create a card-like container for the main input
-st.markdown('<div class="card">', unsafe_allow_html=True)
-
-# Input for target URL with URL validation
-target_url = st.text_input("Target URL", "https://example.com")
-
-# Validate URL format
-if target_url:
-    try:
-        result = urlparse(target_url)
-        is_valid = all([result.scheme, result.netloc])
-        if not is_valid:
-            st.warning("Please enter a valid URL including http:// or https://")
-    except:
-        st.warning("Please enter a valid URL")
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Advanced crawling parameters
-with st.expander("Advanced Crawling Parameters"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Input for crawl depth
-        crawl_depth = st.slider("Crawl Depth", min_value=1, max_value=5, value=1, help="How many links deep to crawl")
-        
-        # Input for max pages
-        max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=4, help="Maximum number of pages to crawl")
-        
-        # Input for request timeout
-        timeout = st.number_input("Request Timeout (seconds)", min_value=1, max_value=60, value=10, help="Timeout for each HTTP request")
-        
-        # Parallel workers
-        max_workers = st.slider("Parallel Workers", min_value=1, max_value=10, value=5, help="Number of parallel requests to make")
-    
-    with col2:
-        # Domain restriction options
-        domain_restriction = st.radio(
-            "Domain Restriction", 
-            ["Stay in same domain", "Allow all domains", "Custom domain list"],
-            index=0,
-            help="Control which domains the crawler can visit")
-        
-        # Custom domain list (if selected)
-        custom_domains = ""
-        if domain_restriction == "Custom domain list":
-            custom_domains = st.text_area(
-                "Allowed Domains", 
-                "", 
-                help="Enter domains to allow, one per line (e.g., example.com)")
-        
-        # User agent
-        user_agent = st.text_input(
-            "User Agent", 
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            help="Custom user agent for requests")
-        
-        # Add robots.txt compliance option
-        respect_robots = st.checkbox("Respect robots.txt", value=True, help="Follow robots.txt rules for ethical scraping")
-        
-        # Cache option
-        use_cache = st.checkbox("Use cached results if available", value=True, help="Use previously cached results to speed up repeated crawls")
-
-# Input for keywords with futuristic styling
-keywords = st.text_input("🔍 Keywords (optional)", help="Comma-separated keywords to filter pages")
-
-# Operation mode selection with futuristic styling
-st.markdown('<h4 class="main-header">AI Analysis Mode</h4>', unsafe_allow_html=True)
-operation_mode = st.radio("Select Operation Mode", ["✨ Summarize", "❓ Question & Answer"], index=0)
-
-# Question input if asking a question
-user_question = ""
-if operation_mode == "❓ Question & Answer":
-    question = st.text_input("🤔 Enter your question about the content:")
-
-# Custom prompt input
-custom_prompt = ""
-custom_language = "English"
-if operation_mode == "✨ Summarize":
-    summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
-    summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
-    summary_temperature = 0.7  # Default temperature for summaries
-
-# DeepSeek API Key - Using Streamlit secrets management
-# For local development, you can use st.secrets or environment variables
-try:
-    # Try to get from Streamlit secrets (for deployment)
-    DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
-except:
-    # Fallback for local development
-    import os
-    DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
-    
-    # If no API key found, show input field
-    # API Key management with futuristic styling
+    # Create a card-like container for the main input
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<h3 class="main-header">API Keys</h3>', unsafe_allow_html=True)
-    
-    # DeepSeek API Key
-    api_key = st.text_input("DeepSeek API Key", value=DEEPSEEK_API_KEY if DEEPSEEK_API_KEY else "", type="password")
-    if st.button("💾 Save API Key"):
-        # In a real app, you'd save this securely. For demo, we'll just update the session state
-        st.session_state.deepseek_api_key = api_key
-        st.success("API Key saved!")
+
+    # Input for target URL with URL validation
+    target_url = st.text_input("Target URL", "https://example.com")
+
+    # Validate URL format
+    if target_url:
+        try:
+            result = urlparse(target_url)
+            is_valid = all([result.scheme, result.netloc])
+            if not is_valid:
+                st.warning("Please enter a valid URL including http:// or https://")
+        except:
+            st.warning("Please enter a valid URL")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Scrape Button ---
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<h3 class="main-header">Start Scraping</h3>', unsafe_allow_html=True)
-col1, col2 = st.columns([3, 1])
-with col1:
-    start_button = st.button("🚀 Start Scraping", use_container_width=True)
-with col2:
-    clear_results = st.button("🗑️ Clear Results", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+    # Advanced crawling parameters
+    with st.expander("Advanced Crawling Parameters"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Input for crawl depth
+            crawl_depth = st.slider("Crawl Depth", min_value=1, max_value=5, value=1, help="How many links deep to crawl")
+            
+            # Input for max pages
+            max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=4, help="Maximum number of pages to crawl")
+            
+            # Input for request timeout
+            timeout = st.number_input("Request Timeout (seconds)", min_value=1, max_value=60, value=10, help="Timeout for each HTTP request")
+            
+            # Parallel workers
+            max_workers = st.slider("Parallel Workers", min_value=1, max_value=10, value=5, help="Number of parallel requests to make")
+        
+        with col2:
+            # Domain restriction options
+            domain_restriction = st.radio(
+                "Domain Restriction", 
+                ["Stay in same domain", "Allow all domains", "Custom domain list"],
+                index=0,
+                help="Control which domains the crawler can visit")
+            
+            # Custom domain list (if selected)
+            custom_domains = ""
+            if domain_restriction == "Custom domain list":
+                custom_domains = st.text_area(
+                    "Allowed Domains", 
+                    "", 
+                    help="Enter domains to allow, one per line (e.g., example.com)")
+            
+            # User agent
+            user_agent = st.text_input(
+                "User Agent", 
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                help="Custom user agent for requests")
+            
+            # Add robots.txt compliance option
+            respect_robots = st.checkbox("Respect robots.txt", value=True, help="Follow robots.txt rules for ethical scraping")
+            
+            # Cache option
+            use_cache = st.checkbox("Use cached results if available", value=True, help="Use previously cached results to speed up repeated crawls")
 
-# Add a session state to store results between reruns
-if 'crawl_results' not in st.session_state:
-    st.session_state.crawl_results = None
-    
-# Clear results if requested
-if clear_results:
-    st.session_state.crawl_results = None
-    st.rerun()
-    
-    # Display visualizations if we have results
-if st.session_state.crawl_results:
-    with st.expander("📊 Data Visualizations"):
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<h2 class="main-header">Crawl Analysis</h2>', unsafe_allow_html=True)
-        
-        # Create tabs for different visualizations with futuristic styling
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Crawled Pages", "📝 Content", "⚙️ Technical Report", "😊 Sentiment Analysis", "🧠 AI Analysis"])
-        
-        with tab1:
-            # Create a DataFrame for element counts across pages
-            element_data = []
-            for page in st.session_state.crawl_results:
-                if "report" in page and "element_counts" in page["report"]:
-                    for element, count in page["report"]["element_counts"].items():
-                        element_data.append({
-                            "url": page["url"],
-                            "element": element,
-                            "count": count
-                        })
-            
-            if element_data:
-                df_elements = pd.DataFrame(element_data)
-                
-                # Group by element type and sum counts
-                element_summary = df_elements.groupby("element")["count"].sum().reset_index()
-                element_summary = element_summary.sort_values("count", ascending=False).head(10)
-                
-                # Create bar chart
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x="count", y="element", data=element_summary, palette="viridis")
-                plt.title("Top 10 HTML Elements Across All Pages")
-                plt.tight_layout()
-                st.pyplot(fig)
-                
-                # Show the data table
-                st.dataframe(element_summary)
-        
-        with tab5:
-            # AI analysis
-            st.write("AI Analysis")
-            
-            # Display crawl errors if any with futuristic styling
-            if "errors" in st.session_state and st.session_state.errors:
-                st.markdown('<div class="card">', unsafe_allow_html=True)
-                with st.expander(f"⚠️ Crawling Errors ({len(st.session_state.errors)})"):
-                    st.json(st.session_state.errors)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Display AI analysis results
-            if "summaries" in st.session_state:
-                st.dataframe(st.session_state.summaries)
-            else:
-                st.info("No AI analysis results available.")
-    
-    # This line was causing issues - removing it
+    # Input for keywords with futuristic styling
+    keywords = st.text_input("🔍 Keywords (optional)", help="Comma-separated keywords to filter pages")
 
-if start_button:
-    if not target_url:
-        st.warning("Please enter a target URL.")
-    # Removed API key check from UI as it's hardcoded
-    else:
-        st.info("Starting crawl with crawl4ai...")
-        # --- Crawl4ai usage (placeholder) ---
-        try:
-            # Using our async crawler implementation with futuristic UI
+    # Operation mode selection with futuristic styling
+    st.markdown('<h4 class="main-header">AI Analysis Mode</h4>', unsafe_allow_html=True)
+    operation_mode = st.radio("Select Operation Mode", ["✨ Summarize", "❓ Question & Answer"], index=0)
+
+    # Question input if asking a question
+    user_question = ""
+    if operation_mode == "❓ Question & Answer":
+        question = st.text_input("🤔 Enter your question about the content:")
+
+    # Custom prompt input
+    custom_prompt = ""
+    custom_language = "English"
+    if operation_mode == "✨ Summarize":
+        summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
+        summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
+        summary_temperature = 0.7  # Default temperature for summaries
+
+    # DeepSeek API Key - Using Streamlit secrets management
+    # For local development, you can use st.secrets or environment variables
+    try:
+        # Try to get from Streamlit secrets (for deployment)
+        DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
+    except:
+        # Fallback for local development
+        import os
+        DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+        
+        # If no API key found, show input field
+        if not DEEPSEEK_API_KEY:
+            # API Key management with futuristic styling
             st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown(f"<h3 class='main-header'>Crawling {target_url} to depth {crawl_depth}...</h3>", unsafe_allow_html=True)
+            st.markdown('<h3 class="main-header">API Keys</h3>', unsafe_allow_html=True)
             
-            # Show a futuristic progress animation
-            with st.spinner("Initializing crawl process..."):
-                crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
-                                              custom_domains, user_agent, max_workers, respect_robots, use_cache)
-            if crawl_results:
-                st.success(f"✅ Crawling complete! {len(crawl_results)} pages fetched.")
-                st.markdown('</div>', unsafe_allow_html=True)
-                # Store results in session state
-                st.session_state.crawl_results = crawl_results
-            else:
-                st.error("No pages were fetched. Check the URL or crawl parameters.")
-        except Exception as e:
-            st.error(f"❌ Error during crawling: {str(e)}")
+            # DeepSeek API Key
+            api_key = st.text_input("DeepSeek API Key", value="", type="password")
+            if st.button("💾 Save API Key"):
+                # In a real app, you'd save this securely. For demo, we'll just update the session state
+                st.session_state.deepseek_api_key = api_key
+                st.success("API Key saved!")
             st.markdown('</div>', unsafe_allow_html=True)
-            crawl_results = []
-        # --- DeepSeek API usage ---
-        if crawl_results:
-            # Convert HTML to plain text for each page
-            for page in crawl_results:
-                page["text"] = html_to_text(page["content"])
-                page["report"] = generate_technical_report(page["content"], page["url"])
 
-            st.info("Sending data to DeepSeek API...")
+    # --- Scrape Button ---
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<h3 class="main-header">Start Scraping</h3>', unsafe_allow_html=True)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        start_button = st.button("🚀 Start Scraping", use_container_width=True)
+    with col2:
+        clear_results = st.button("🗑️ Clear Results", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-            # Perform AI analysis based on operation mode with futuristic styling
+    # Add a session state to store results between reruns
+    if 'crawl_results' not in st.session_state:
+        st.session_state.crawl_results = None
+        
+    # Clear results if requested
+    if clear_results:
+        st.session_state.crawl_results = None
+        st.rerun()
+
+    # Display visualizations if we have results
+    if st.session_state.crawl_results:
+        with st.expander("📊 Data Visualizations"):
             st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown('<h3 class="main-header">AI Analysis</h3>', unsafe_allow_html=True)
+            st.markdown('<h2 class="main-header">Crawl Analysis</h2>', unsafe_allow_html=True)
             
-            if operation_mode == "✨ Summarize":
-                with st.spinner("Generating AI summaries..."):
-                    # Define temperature for summaries if not already defined
-                    if 'summary_temperature' not in locals():
-                        summary_temperature = 0.7
-
-                    # Helper to build prompt for a page
-                    def build_summary_prompt(page_text, page_url):
-                        base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
-                        if summary_language == "Hebrew":
-                            base_prompt += "\n\nPlease respond in Hebrew."
-                        return base_prompt
-
-                    # Process pages with progress tracking
-                    summaries = []
-                    
-                    # Add a download button for the crawled data
-                    if st.session_state.crawl_results:
-                        crawl_data_json = json.dumps(st.session_state.crawl_results, indent=2)
-                        st.download_button(
-                            label="📥 Download Raw Crawl Data (JSON)",
-                            data=crawl_data_json,
-                            file_name="crawl_data.json",
-                            mime="application/json"
-                        )
-                    
-                    # Create and display progress bar
-                    progress_text = "Preparing to summarize pages..."
-                    my_bar = st.progress(0, text=progress_text)
-                    
-                    # Process each page one by one
-                    total_pages = len(crawl_results)
-                    for i, page in enumerate(crawl_results):
-                        # Update progress
-                        progress_text = f"Summarizing page {i+1} of {total_pages}"
-                        progress_value = float(i) / float(total_pages)
-                        my_bar.progress(progress_value, text=progress_text)
-                        
-                        # Extract text content (limit to 4000 chars)
-                        text = page["text"][:4000] if "text" in page else ""
-                        
-                        # Build the prompt
-                        prompt_text = build_summary_prompt(text, page["url"])
-                        
-                        # Call DeepSeek API with proper error handling
-                        try:
-                            # Make the API call
-                            summary = deepseek_chat(
-                                [{"role": "user", "content": prompt_text}],
-                                system_prompt=system_prompts[summary_style],
-                                temperature=summary_temperature
-                            )
-                            summaries.append(summary)
-                        except Exception as e:
-                            # Handle any errors
-                            error_message = f"Error processing summary: {str(e)}"
-                            summaries.append(error_message)
-                            st.error(f"Error on page {i+1}: {str(e)}")
-                    
-                    # Complete the progress bar
-                    my_bar.progress(1.0, text="Summarization complete!")
-                    time.sleep(0.5)  # Brief pause
-                    my_bar.empty()
-
-                    # Display summaries
-                    st.subheader("Page Summaries")
-                    for i, (page, summary_text) in enumerate(zip(crawl_results, summaries)):
-                        with st.expander(f"Summary for {page['url']}"):
-                            if isinstance(summary_text, str) and summary_text.startswith("Error"):
-                                st.error(summary_text)
-                            else:
-                                st.write(summary_text)
-            elif operation_mode == "❓ Question & Answer":
-                if question:
-                    with st.spinner(f"Answering: {question}"):
-                        # Concatenate texts with limit
-                        combined_text = "\n---\n".join([p["text"] for p in crawl_results])
-                        combined_text = combined_text[:12000]  # truncate to stay within token limit
-                        prompt = (
-                            f"You are provided with combined text from multiple web pages. "
-                            f"Answer the following question based on this content.\n\n"
-                            f"### Question:\n{question}\n\n### Content:\n{combined_text}"
-                        )
-                        result = deepseek_chat([
-                            {"role": "user", "content": prompt}
-                        ])
-                        answer = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
-                        st.subheader("DeepSeek Answer")
-                        st.write(answer)
-
-            # Display crawl results for reference
-            st.subheader("Technical Reports")
-            if crawl_results:
-                url_options = [p["url"] for p in crawl_results]
-                selected_url = st.selectbox("Choose a page to view its technical report", url_options)
-                selected_report = next(p["report"] for p in crawl_results if p["url"] == selected_url)
-                st.json(selected_report)
-
+            # Create tabs for different visualizations with futuristic styling
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Crawled Pages", "📝 Content", "⚙️ Technical Report", "😊 Sentiment Analysis", "🧠 AI Analysis"])
             
-            with st.expander("Show Raw Crawl Results"):
-                st.json(crawl_results)
+            with tab1:
+                # Create a DataFrame for element counts across pages
+                element_data = []
+                for page in st.session_state.crawl_results:
+                    if "report" in page and "element_counts" in page["report"]:
+                        for element, count in page["report"]["element_counts"].items():
+                            element_data.append({
+                                "url": page["url"],
+                                "element": element,
+                                "count": count
+                            })
+                
+                if element_data:
+                    df_elements = pd.DataFrame(element_data)
+                    
+                    # Group by element type and sum counts
+                    element_summary = df_elements.groupby("element")["count"].sum().reset_index()
+                    element_summary = element_summary.sort_values("count", ascending=False).head(10)
+                    
+                    # Create bar chart
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    sns.barplot(x="count", y="element", data=element_summary, palette="viridis")
+                    plt.title("Top 10 HTML Elements Across All Pages")
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    
+                    # Show the data table
+                    st.dataframe(element_summary)
             
-            # Export options
-            st.subheader("Export Results")
-            col1, col2 = st.columns(2)
-            
-            # Export crawl results
-            with col1:
+            with tab5:
+                # AI analysis
+                st.write("AI Analysis")
+                
+                # Display crawl errors if any with futuristic styling
+                if "errors" in st.session_state and st.session_state.errors:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    with st.expander(f"⚠️ Crawling Errors ({len(st.session_state.errors)})"):
+                        st.json(st.session_state.errors)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Display AI analysis results
+                if "summaries" in st.session_state:
+                    st.dataframe(st.session_state.summaries)
+                else:
+                    st.info("No AI analysis results available.")
+        
+        # This line was causing issues - removing it
+
+    if start_button:
+        if not target_url:
+            st.warning("Please enter a target URL.")
+        # Removed API key check from UI as it's hardcoded
+        else:
+            st.info("Starting crawl with crawl4ai...")
+            # --- Crawl4ai usage (placeholder) ---
+            try:
+                # Using our async crawler implementation with futuristic UI
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.markdown(f"<h3 class='main-header'>Crawling {target_url} to depth {crawl_depth}...</h3>", unsafe_allow_html=True)
+                
+                # Show a futuristic progress animation
+                with st.spinner("Initializing crawl process..."):
+                    crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
+                                                  custom_domains, user_agent, max_workers, respect_robots, use_cache)
                 if crawl_results:
-                    # JSON export
-                    json_data = json.dumps(crawl_results, indent=2)
-                    b64_json = base64.b64encode(json_data.encode()).decode()
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"crawl_results_{timestamp}.json"
-                    href = f'<a href="data:application/json;base64,{b64_json}" download="{filename}">Download Crawl Results (JSON)</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-                    
-                    # CSV export (simplified - just URLs and text snippets)
-                    csv_buffer = io.StringIO()
-                    csv_writer = csv.writer(csv_buffer)
-                    csv_writer.writerow(["URL", "Text Preview"])
-                    for page in crawl_results:
-                        # Truncate text for CSV
-                        text_preview = page.get("text", "")[:500] + "..." if len(page.get("text", "")) > 500 else page.get("text", "")
-                        csv_writer.writerow([page["url"], text_preview])
-                    
-                    b64_csv = base64.b64encode(csv_buffer.getvalue().encode()).decode()
-                    filename_csv = f"crawl_results_{timestamp}.csv"
-                    href_csv = f'<a href="data:text/csv;base64,{b64_csv}" download="{filename_csv}">Download Crawl Results (CSV)</a>'
-                    st.markdown(href_csv, unsafe_allow_html=True)
-            
-            # Export DeepSeek results
-            with col2:
-                if operation_mode == "✨ Summarize" and "summaries" in locals():
-                    # Export summaries
-                    summary_data = {page["url"]: summary for page, summary in zip(crawl_results, summaries)}
-                    json_summary = json.dumps(summary_data, indent=2)
-                    b64_summary = base64.b64encode(json_summary.encode()).decode()
-                    filename_summary = f"summaries_{timestamp}.json"
-                    href_summary = f'<a href="data:application/json;base64,{b64_summary}" download="{filename_summary}">Download Summaries (JSON)</a>'
-                    st.markdown(href_summary, unsafe_allow_html=True)
-                elif operation_mode == "❓ Question & Answer" and "answer" in locals():
-                    # Export Q&A
-                    qa_data = {"question": question, "answer": answer}
-                    json_qa = json.dumps(qa_data, indent=2)
-                    b64_qa = base64.b64encode(json_qa.encode()).decode()
-                    filename_qa = f"qa_result_{timestamp}.json"
-                    href_qa = f'<a href="data:application/json;base64,{b64_qa}" download="{filename_qa}">Download Q&A Result (JSON)</a>'
-                    st.markdown(href_qa, unsafe_allow_html=True)
-                # Export technical reports
-                if crawl_results and all("report" in p for p in crawl_results):
-                    reports_json = json.dumps({p["url"]: p["report"] for p in crawl_results}, indent=2)
-                    b64_rep = base64.b64encode(reports_json.encode()).decode()
-                    filename_rep = f"tech_reports_{timestamp}.json"
-                    href_rep = f'<a href="data:application/json;base64,{b64_rep}" download="{filename_rep}">Download Technical Reports (JSON)</a>'
-                    st.markdown(href_rep, unsafe_allow_html=True)
+                    st.success(f"✅ Crawling complete! {len(crawl_results)} pages fetched.")
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    # Store results in session state
+                    st.session_state.crawl_results = crawl_results
+                else:
+                    st.error("No pages were fetched. Check the URL or crawl parameters.")
+            except Exception as e:
+                st.error(f"❌ Error during crawling: {str(e)}")
+                st.markdown('</div>', unsafe_allow_html=True)
+                crawl_results = []
+            # --- DeepSeek API usage ---
+            if crawl_results:
+                # Convert HTML to plain text for each page
+                for page in crawl_results:
+                    page["text"] = html_to_text(page["content"])
+                    page["report"] = generate_technical_report(page["content"], page["url"])
+
+                st.info("Sending data to DeepSeek API...")
+
+                # Perform AI analysis based on operation mode with futuristic styling
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.markdown('<h3 class="main-header">AI Analysis</h3>', unsafe_allow_html=True)
+                
+                if operation_mode == "✨ Summarize":
+                    with st.spinner("Generating AI summaries..."):
+                        # Define temperature for summaries if not already defined
+                        if 'summary_temperature' not in locals():
+                            summary_temperature = 0.7
+
+                        # Helper to build prompt for a page
+                        def build_summary_prompt(page_text, page_url):
+                            base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
+                            if summary_language == "Hebrew":
+                                base_prompt += "\n\nPlease respond in Hebrew."
+                            return base_prompt
+
+                        # Process pages with progress tracking
+                        summaries = []
+                        
+                        # Add a download button for the crawled data
+                        if st.session_state.crawl_results:
+                            crawl_data_json = json.dumps(st.session_state.crawl_results, indent=2)
+                            st.download_button(
+                                label="📥 Download Raw Crawl Data (JSON)",
+                                data=crawl_data_json,
+                                file_name="crawl_data.json",
+                                mime="application/json"
+                            )
+                        
+                        # Create and display progress bar
+                        progress_text = "Preparing to summarize pages..."
+                        my_bar = st.progress(0, text=progress_text)
+                        
+                        # Process each page one by one
+                        total_pages = len(crawl_results)
+                        for i, page in enumerate(crawl_results):
+                            # Update progress
+                            progress_text = f"Summarizing page {i+1} of {total_pages}"
+                            progress_value = float(i) / float(total_pages)
+                            my_bar.progress(progress_value, text=progress_text)
+                            
+                            # Extract text content (limit to 4000 chars)
+                            text = page["text"][:4000] if "text" in page else ""
+                            
+                            # Build the prompt
+                            prompt_text = build_summary_prompt(text, page["url"])
+                            
+                            # Call DeepSeek API with proper error handling
+                            try:
+                                # Make the API call
+                                summary = deepseek_chat(
+                                    [{"role": "user", "content": prompt_text}],
+                                    system_prompt=system_prompts[summary_style],
+                                    temperature=summary_temperature
+                                )
+                                summaries.append(summary)
+                            except Exception as e:
+                                # Handle any errors
+                                error_message = f"Error processing summary: {str(e)}"
+                                summaries.append(error_message)
+                                st.error(f"Error on page {i+1}: {str(e)}")
+                        
+                        # Complete the progress bar
+                        my_bar.progress(1.0, text="Summarization complete!")
+                        time.sleep(0.5)  # Brief pause
+                        my_bar.empty()
+
+                        # Display summaries
+                        st.subheader("Page Summaries")
+                        for i, (page, summary_text) in enumerate(zip(crawl_results, summaries)):
+                            with st.expander(f"Summary for {page['url']}"):
+                                if isinstance(summary_text, str) and summary_text.startswith("Error"):
+                                    st.error(summary_text)
+                                else:
+                                    st.write(summary_text)
+                elif operation_mode == "❓ Question & Answer":
+                    if question:
+                        with st.spinner(f"Answering: {question}"):
+                            # Concatenate texts with limit
+                            combined_text = "\n---\n".join([p["text"] for p in crawl_results])
+                            combined_text = combined_text[:12000]  # truncate to stay within token limit
+                            prompt = (
+                                f"You are provided with combined text from multiple web pages. "
+                                f"Answer the following question based on this content.\n\n"
+                                f"### Question:\n{question}\n\n### Content:\n{combined_text}"
+                            )
+                            result = deepseek_chat([
+                                {"role": "user", "content": prompt}
+                            ])
+                            answer = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
+                            st.subheader("DeepSeek Answer")
+                            st.write(answer)
+
+                # Display crawl results for reference
+                st.subheader("Technical Reports")
+                if crawl_results:
+                    url_options = [p["url"] for p in crawl_results]
+                    selected_url = st.selectbox("Choose a page to view its technical report", url_options)
+                    selected_report = next(p["report"] for p in crawl_results if p["url"] == selected_url)
+                    st.json(selected_report)
+
+                
+                with st.expander("Show Raw Crawl Results"):
+                    st.json(crawl_results)
+                
+                # Export options
+                st.subheader("Export Results")
+                col1, col2 = st.columns(2)
+                
+                # Export crawl results
+                with col1:
+                    if crawl_results:
+                        # JSON export
+                        json_data = json.dumps(crawl_results, indent=2)
+                        b64_json = base64.b64encode(json_data.encode()).decode()
+                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"crawl_results_{timestamp}.json"
+                        href = f'<a href="data:application/json;base64,{b64_json}" download="{filename}">Download Crawl Results (JSON)</a>'
+                        st.markdown(href, unsafe_allow_html=True)
+                        
+                        # CSV export (simplified - just URLs and text snippets)
+                        csv_buffer = io.StringIO()
+                        csv_writer = csv.writer(csv_buffer)
+                        csv_writer.writerow(["URL", "Text Preview"])
+                        for page in crawl_results:
+                            # Truncate text for CSV
+                            text_preview = page.get("text", "")[:500] + "..." if len(page.get("text", "")) > 500 else page.get("text", "")
+                            csv_writer.writerow([page["url"], text_preview])
+                        
+                        b64_csv = base64.b64encode(csv_buffer.getvalue().encode()).decode()
+                        filename_csv = f"crawl_results_{timestamp}.csv"
+                        href_csv = f'<a href="data:text/csv;base64,{b64_csv}" download="{filename_csv}">Download Crawl Results (CSV)</a>'
+                        st.markdown(href_csv, unsafe_allow_html=True)
+                
+                # Export DeepSeek results
+                with col2:
+                    if operation_mode == "✨ Summarize" and "summaries" in locals():
+                        # Export summaries
+                        summary_data = {page["url"]: summary for page, summary in zip(crawl_results, summaries)}
+                        json_summary = json.dumps(summary_data, indent=2)
+                        b64_summary = base64.b64encode(json_summary.encode()).decode()
+                        filename_summary = f"summaries_{timestamp}.json"
+                        href_summary = f'<a href="data:application/json;base64,{b64_summary}" download="{filename_summary}">Download Summaries (JSON)</a>'
+                        st.markdown(href_summary, unsafe_allow_html=True)
+                    elif operation_mode == "❓ Question & Answer" and "answer" in locals():
+                        # Export Q&A
+                        qa_data = {"question": question, "answer": answer}
+                        json_qa = json.dumps(qa_data, indent=2)
+                        b64_qa = base64.b64encode(json_qa.encode()).decode()
+                        filename_qa = f"qa_result_{timestamp}.json"
+                        href_qa = f'<a href="data:application/json;base64,{b64_qa}" download="{filename_qa}">Download Q&A Result (JSON)</a>'
+                        st.markdown(href_qa, unsafe_allow_html=True)
+                    # Export technical reports
+                    if crawl_results and all("report" in p for p in crawl_results):
+                        reports_json = json.dumps({p["url"]: p["report"] for p in crawl_results}, indent=2)
+                        b64_rep = base64.b64encode(reports_json.encode()).decode()
+                        filename_rep = f"tech_reports_{timestamp}.json"
+                        href_rep = f'<a href="data:application/json;base64,{b64_rep}" download="{filename_rep}">Download Technical Reports (JSON)</a>'
+                        st.markdown(href_rep, unsafe_allow_html=True)
 
 # --- Footer ---
 st.markdown("---")
