@@ -1,4 +1,25 @@
 import streamlit as st
+import os
+import sys
+
+# Configure Streamlit settings to prevent common errors
+st.set_page_config(
+    page_title="NeoScraper AI",
+    page_icon="🕷️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/yourusername/neoscraper',
+        'Report a bug': 'https://github.com/yourusername/neoscraper/issues',
+        'About': 'NeoScraper AI - Advanced web scraping with AI analysis'
+    }
+)
+
+# Set environment variables to prevent Streamlit errors
+os.environ.setdefault('STREAMLIT_SERVER_ENABLE_CORS', 'false')
+os.environ.setdefault('STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION', 'true')
+os.environ.setdefault('STREAMLIT_BROWSER_GATHER_USAGE_STATS', 'false')
+
 # Import crawl4ai and requests for scraping and API calls
 import crawl4ai
 import requests
@@ -1655,13 +1676,6 @@ def generate_html_template(blueprint):
     
     return html_template
 
-st.set_page_config(page_title="NeoScraper AI", layout="wide", initial_sidebar_state="expanded", 
-                 menu_items={
-                     'Get Help': 'https://github.com/yourusername/neoscraper',
-                     'Report a bug': 'https://github.com/yourusername/neoscraper/issues',
-                     'About': 'NeoScraper AI - Advanced web scraping with AI analysis'
-                 })
-
 # Initialize theme in session state if not already present
 if 'theme' not in st.session_state:
     st.session_state.theme = "Futuristic"  # Default to Futuristic theme
@@ -2026,46 +2040,77 @@ elif page == "Settings":
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
         
+        # Initialize session state for WhatsApp config
+        if 'whatsapp_configured' not in st.session_state:
+            st.session_state.whatsapp_configured = False
+        
         whatsapp_client = get_whatsapp_client()
         
-        # Configuration form
-        with st.form("whatsapp_config"):
-            st.markdown("Configure your WaPulse WhatsApp integration:")
+        st.markdown("Configure your WaPulse WhatsApp integration:")
+        
+        # Help information
+        with st.expander("ℹ️ How to get WaPulse credentials"):
+            st.markdown("""
+            **Steps to get your WaPulse credentials:**
             
+            1. **Sign up** at [WaPulse](https://wapulse.com)
+            2. **Create an instance** in your dashboard
+            3. **Copy your Instance ID** from the instance details
+            4. **Generate an API token** in your account settings
+            5. **Paste both values** in the form below
+            
+            **Note:** Your credentials are stored securely and only used for WhatsApp messaging.
+            """)
+        
+        # Configuration form
+        with st.form("whatsapp_config", clear_on_submit=False):
             instance_id = st.text_input(
                 "Instance ID", 
-                value=whatsapp_client.instance_id,
-                help="Your WaPulse instance ID"
+                value=whatsapp_client.instance_id if whatsapp_client.instance_id else "",
+                help="Your WaPulse instance ID",
+                key="wa_instance_id"
             )
             
             token = st.text_input(
                 "API Token", 
-                value="*" * len(whatsapp_client.token) if whatsapp_client.token else "",
+                value="",
                 type="password",
-                help="Your WaPulse API token"
+                help="Your WaPulse API token",
+                placeholder="Enter your API token" if not whatsapp_client.token else "Token is configured",
+                key="wa_token"
             )
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.form_submit_button("💾 Save Configuration"):
-                    if instance_id and token and not token.startswith("*"):
-                        if configure_whatsapp(instance_id, token):
-                            st.success("✅ WhatsApp configuration saved successfully!")
-                        else:
-                            st.error("❌ Failed to configure WhatsApp integration")
+            # Single submit button for the form
+            submitted = st.form_submit_button("💾 Save Configuration", use_container_width=True)
+        
+        # Handle form submission
+        if submitted:
+            if instance_id and token:
+                with st.spinner("Configuring WhatsApp integration..."):
+                    if configure_whatsapp(instance_id, token):
+                        st.success("✅ WhatsApp configuration saved successfully!")
+                        st.session_state.whatsapp_configured = True
+                        st.balloons()  # Celebration effect
+                        time.sleep(1)  # Brief pause before rerun
+                        st.rerun()  # Refresh to show updated status
                     else:
-                        st.warning("⚠️ Please provide both Instance ID and Token")
-            
-            with col2:
-                if st.form_submit_button("🧪 Test Connection"):
-                    if whatsapp_client.is_configured():
-                        status = whatsapp_client.get_instance_status()
-                        if status.get("configured"):
-                            st.success(f"✅ Connection successful! Status: {status.get('status')}")
-                        else:
-                            st.error(f"❌ Connection failed: {status.get('error')}")
+                        st.error("❌ Failed to configure WhatsApp integration")
+                        st.session_state.whatsapp_configured = False
+            else:
+                st.warning("⚠️ Please provide both Instance ID and Token")
+        
+        # Separate test connection button outside the form
+        if st.button("🧪 Test Connection", use_container_width=True):
+            if whatsapp_client.is_configured():
+                with st.spinner("Testing WhatsApp connection..."):
+                    status = whatsapp_client.get_instance_status()
+                    if status.get("configured"):
+                        st.success(f"✅ Connection successful! Status: {status.get('status')}")
+                        st.info(f"📱 Instance ID: {whatsapp_client.instance_id}")
                     else:
-                        st.warning("⚠️ Please configure WhatsApp first")
+                        st.error(f"❌ Connection failed: {status.get('error', 'Unknown error')}")
+            else:
+                st.warning("⚠️ Please configure WhatsApp first")
         
         # Current status
         if whatsapp_client.is_configured():
