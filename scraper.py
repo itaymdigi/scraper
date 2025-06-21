@@ -2419,11 +2419,6 @@ def main():
                                 summary_temperature = 0.7
 
                             # Helper to build prompt for a page
-
-    # Sidebar with futuristic styling
-    st.sidebar.markdown('<h1 class="main-header">NeoScraper AI</h1>', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
-
                         def build_summary_prompt(page_text, page_url):
                             base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
                             if summary_language == "Hebrew":
