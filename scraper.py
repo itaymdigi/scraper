@@ -1676,752 +1676,754 @@ def generate_html_template(blueprint):
     
     return html_template
 
-# Initialize theme in session state if not already present
-if 'theme' not in st.session_state:
-    st.session_state.theme = "Futuristic"  # Default to Futuristic theme
-
-# Sidebar with futuristic styling
-st.sidebar.markdown('<h1 class="main-header">NeoScraper AI</h1>', unsafe_allow_html=True)
-st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
-
-# Theme selector with new futuristic option
-theme = st.sidebar.radio("Select Theme", ["Futuristic", "Dark", "Light", "Blue"], index=0)
-if theme != st.session_state.theme:
-    st.session_state.theme = theme
-    st.rerun()
-    
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
-
-# Define CSS for different themes
-dark_theme = """
-<style>
-.stApp {background-color: #121212 !important;}
-.card {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
-.main-header {color: #BB86FC !important;}
-.stTextInput>div>div>input {background-color: #333 !important; color: white !important;}
-.stSelectbox>div>div>div {background-color: #333 !important; color: white !important;}
-.stTabs [data-baseweb="tab-list"] {background-color: #1E1E1E !important;}
-.stTabs [data-baseweb="tab"] {color: #E0E0E0 !important;}
-.stTabs [aria-selected="true"] {background-color: #333 !important;}
-.stMarkdown {color: #E0E0E0 !important;}
-.stDataFrame {color: #E0E0E0 !important;}
-.stButton>button {background-color: #333 !important; color: white !important;}
-.stExpander {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
-.stRadio>div {color: #E0E0E0 !important;}
-.stSidebar .stButton>button {background-color: #444 !important; color: white !important;}
-</style>
-"""
-
-light_theme = """
-<style>
-.stApp {background-color: #FFFFFF !important;}
-.card {background-color: #F8F9FA !important; color: #212529 !important;}
-.main-header {color: #0D6EFD !important;}
-</style>
-"""
-
-blue_theme = """
-<style>
-.stApp {background-color: #E3F2FD !important;}
-.card {background-color: white !important;}
-.main-header {color: #0D47A1 !important;}
-</style>
-"""
-
-# New futuristic theme with glassmorphism and neon effects
-futuristic_theme = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
-
-.stApp {
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e) !important;
-    background-size: 400% 400% !important;
-    animation: gradient 15s ease infinite !important;
-    font-family: 'Orbitron', sans-serif !important;
-}
-
-@keyframes gradient {
-    0% { background-position: 0% 50% !important; }
-    50% { background-position: 100% 50% !important; }
-    100% { background-position: 0% 50% !important; }
-}
-
-.card {
-    background: rgba(25, 25, 35, 0.7) !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #e0f7fa !important;
-    margin-bottom: 20px !important;
-    padding: 20px !important;
-}
-
-.main-header {
-    color: #80deea !important;
-    text-shadow: 0 0 10px rgba(128, 222, 234, 0.7), 0 0 20px rgba(128, 222, 234, 0.5) !important;
-    font-weight: 700 !important;
-    font-family: 'Orbitron', sans-serif !important;
-    letter-spacing: 2px !important;
-}
-
-.stTextInput>div>div>input {
-    background-color: rgba(30, 30, 40, 0.8) !important;
-    color: #e0f7fa !important;
-    border: 1px solid rgba(128, 222, 234, 0.5) !important;
-    border-radius: 8px !important;
-}
-
-.stSelectbox>div>div>div {
-    background-color: rgba(30, 30, 40, 0.8) !important;
-    color: #e0f7fa !important;
-    border: 1px solid rgba(128, 222, 234, 0.5) !important;
-    border-radius: 8px !important;
-}
-
-.stTabs [data-baseweb="tab-list"] {
-    background-color: rgba(25, 25, 35, 0.5) !important;
-    border-radius: 8px !important;
-}
-
-.stTabs [data-baseweb="tab"] {
-    color: #80deea !important;
-}
-
-.stTabs [aria-selected="true"] {
-    background-color: rgba(128, 222, 234, 0.2) !important;
-    border-bottom: 2px solid #80deea !important;
-}
-
-.stMarkdown {
-    color: #e0f7fa !important;
-}
-
-.stDataFrame {
-    color: #e0f7fa !important;
-}
-
-.stButton>button {
-    background: linear-gradient(45deg, #00bcd4, #80deea) !important;
-    color: #0f2027 !important;
-    border: none !important;
-    border-radius: 8px !important;
-    box-shadow: 0 0 10px rgba(0, 188, 212, 0.5) !important;
-    transition: all 0.3s ease !important;
-    font-family: 'Orbitron', sans-serif !important;
-    font-weight: 500 !important;
-    letter-spacing: 1px !important;
-}
-
-.stButton>button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 0 15px rgba(0, 188, 212, 0.8) !important;
-}
-
-.stExpander {
-    background-color: rgba(25, 25, 35, 0.7) !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(128, 222, 234, 0.3) !important;
-    color: #e0f7fa !important;
-}
-
-.stRadio>div {
-    color: #e0f7fa !important;
-}
-
-.stSidebar .stButton>button {
-    background: linear-gradient(45deg, #00bcd4, #80deea) !important;
-    color: #0f2027 !important;
-    border-radius: 8px !important;
-}
-
-/* Custom progress bar */
-.stProgress > div > div > div > div {
-    background-color: #00bcd4 !important;
-    background: linear-gradient(90deg, #00bcd4, #80deea) !important;
-    box-shadow: 0 0 10px rgba(0, 188, 212, 0.7) !important;
-}
-
-/* Custom sidebar */
-.css-1d391kg, .css-12oz5g7 {
-    background: rgba(15, 15, 25, 0.9) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
-}
-
-/* Custom metric */
-.stMetric {
-    background: rgba(25, 25, 35, 0.7) !important;
-    border-radius: 8px !important;
-    padding: 10px !important;
-    border: 1px solid rgba(128, 222, 234, 0.3) !important;
-}
-
-/* Pulsing effect for important elements */
-.pulse {
-    animation: pulse 2s infinite !important;
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7) !important; }
-    70% { box-shadow: 0 0 0 10px rgba(0, 188, 212, 0) !important; }
-    100% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0) !important; }
-}
-</style>
-"""
-
-# Apply theme based on session state
-if st.session_state.theme == "Dark":
-    st.markdown(dark_theme, unsafe_allow_html=True)
-elif st.session_state.theme == "Light":
-    st.markdown(light_theme, unsafe_allow_html=True)
-elif st.session_state.theme == "Blue":
-    st.markdown(blue_theme, unsafe_allow_html=True)
-elif st.session_state.theme == "Futuristic":
-    st.markdown(futuristic_theme, unsafe_allow_html=True)
-    st.title("Settings")
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    
-    # Cache settings with futuristic styling
-    st.markdown('<h3 class="main-header">Cache Settings</h3>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("🧹 Clear Session Cache"):
-            # Clear session state for cached data
-            for key in ["crawl_results", "pages_text", "technical_report", "summaries", "qa_results"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.success("Session cache cleared successfully!")
-    
-    with col2:
-        if st.button("🗑️ Clear Disk Cache"):
-            # Clear disk cache
-            try:
-                cache.clear()
-                st.success("Disk cache cleared successfully!")
-            except Exception as e:
-                st.error(f"Error clearing disk cache: {e}")
-    
-    # Add color preview boxes
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-        <div style="background-color: #FFFFFF; color: #000000; padding: 10px; border-radius: 5px; text-align: center;">Light</div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown("""
-        <div style="background-color: #121212; color: #E0E0E0; padding: 10px; border-radius: 5px; text-align: center;">Dark</div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-        <div style="background-color: #E3F2FD; color: #0D47A1; padding: 10px; border-radius: 5px; text-align: center;">Blue</div>
-        """, unsafe_allow_html=True)
-    
-    # Theme settings outside of form
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<h3 class="main-header">Theme Settings</h3>', unsafe_allow_html=True)
-    
-    # Store theme preference in session state
-    theme_options = ["Futuristic", "Light", "Dark", "Blue"]
-    current_theme = st.session_state.theme if st.session_state.theme in theme_options else "Futuristic"
-    theme = st.selectbox("Select Theme", theme_options, 
-                       index=theme_options.index(current_theme),
-                       key="theme_select")
-    
-    if st.button("Apply Theme", key="apply_theme_btn"):
-        st.session_state.theme = theme
-        st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # API Key management
-    st.subheader("API Keys")
-    
-    # DeepSeek API Key input
-    deepseek_key = st.text_input("DeepSeek API Key", type="password", 
-                                help="Enter your DeepSeek API key for AI analysis")
-    
-    if st.button("Save API Key"):
-        if deepseek_key:
-            # Save to session state (in production, save to secrets)
-            st.session_state.deepseek_api_key = deepseek_key
-            st.success("API Key saved successfully!")
-        else:
-            st.error("Please enter a valid API key")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --- UI Inputs ---
-# Add a sidebar for better navigation
-st.sidebar.title("Navigation")
-
-# Navigation with futuristic styling
-st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
-st.sidebar.markdown('<h3 class="main-header">Navigation</h3>', unsafe_allow_html=True)
-page = st.sidebar.radio("Go to", ["Scraper", "Analytics", "Settings"])
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
-
-# WhatsApp Integration Settings in Sidebar
-if WHATSAPP_AVAILABLE:
-    st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
-    st.sidebar.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
-    
-    whatsapp_client = get_whatsapp_client()
-    
-    if whatsapp_client.is_configured():
-        st.sidebar.success("✅ WhatsApp Configured")
-        status = whatsapp_client.get_instance_status()
-        st.sidebar.caption(f"Status: {status.get('status', 'Unknown')}")
-    else:
-        st.sidebar.warning("⚠️ WhatsApp Not Configured")
-    
-    if st.sidebar.button("⚙️ Configure WhatsApp"):
-        st.session_state.show_whatsapp_config = True
+def main():
+    """Main application function"""
+    # Initialize theme in session state if not already present
+    if 'theme' not in st.session_state:
+        st.session_state.theme = "Futuristic"  # Default to Futuristic theme
+        # Theme selector with new futuristic option
+        theme = st.sidebar.radio("Select Theme", ["Futuristic", "Dark", "Light", "Blue"], index=0)
+        if theme != st.session_state.theme:
+            st.session_state.theme = theme
+            st.rerun()
     
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-# Main content based on navigation
-if page == "Analytics":
-    st.markdown('<h1 class="main-header">Analytics Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    
-    if st.session_state.get("crawl_results"):
-        # URL Health Monitoring
-        st.markdown('<h3 class="main-header">URL Health Monitoring</h3>', unsafe_allow_html=True)
-        
-        # Select URLs to check health
-        urls_to_check = [result['url'] for result in st.session_state.crawl_results[:10]]  # Limit to first 10 URLs
-        selected_urls = st.multiselect("Select URLs to check health status", urls_to_check, default=urls_to_check[:3])
-        
-        if st.button("🔍 Check URL Health"):
-            health_results = []
-            progress_bar = st.progress(0)
-            
-            for i, url in enumerate(selected_urls):
-                health_data = check_url_health(url)
-                health_results.append({
-                    "URL": url,
-                    "Status Code": health_data["status_code"],
-                    "Response Time (s)": health_data["response_time"],
-                    "Is Healthy": health_data["is_healthy"]
-                })
-                progress_bar.progress((i + 1) / len(selected_urls))
-            
-            # Display health results
-            health_df = pd.DataFrame(health_results)
-            st.session_state.health_results = health_df
-            
-            # Display metrics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                healthy_count = health_df[health_df["Is Healthy"] == True].shape[0]
-                st.metric("Healthy URLs", healthy_count, f"{healthy_count/len(health_df)*100:.1f}%")
-            with col2:
-                avg_response = health_df["Response Time (s)"].mean()
-                st.metric("Avg Response Time", f"{avg_response:.3f}s")
-            with col3:
-                status_ok = health_df[health_df["Status Code"] == 200].shape[0]
-                st.metric("Status 200 OK", status_ok, f"{status_ok/len(health_df)*100:.1f}%")
-            
-            # Display detailed health data
-            st.dataframe(health_df)
-    else:
-        st.info("Run a crawl first to access analytics features.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Define CSS for different themes
+    dark_theme = """
+    <style>
+    .stApp {background-color: #121212 !important;}
+    .card {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
+    .main-header {color: #BB86FC !important;}
+    .stTextInput>div>div>input {background-color: #333 !important; color: white !important;}
+    .stSelectbox>div>div>div {background-color: #333 !important; color: white !important;}
+    .stTabs [data-baseweb="tab-list"] {background-color: #1E1E1E !important;}
+    .stTabs [data-baseweb="tab"] {color: #E0E0E0 !important;}
+    .stTabs [aria-selected="true"] {background-color: #333 !important;}
+    .stMarkdown {color: #E0E0E0 !important;}
+    .stDataFrame {color: #E0E0E0 !important;}
+    .stButton>button {background-color: #333 !important; color: white !important;}
+    .stExpander {background-color: #1E1E1E !important; color: #E0E0E0 !important;}
+    .stRadio>div {color: #E0E0E0 !important;}
+    .stSidebar .stButton>button {background-color: #444 !important; color: white !important;}
+    </style>
+    """
 
-elif page == "Settings":
-    st.markdown('<h1 class="main-header">⚙️ Settings</h1>', unsafe_allow_html=True)
-    
-    # WhatsApp Configuration Section
-    if WHATSAPP_AVAILABLE:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
-        
-        # Initialize session state for WhatsApp config
-        if 'whatsapp_configured' not in st.session_state:
-            st.session_state.whatsapp_configured = False
-        
-        whatsapp_client = get_whatsapp_client()
-        
-        st.markdown("Configure your WaPulse WhatsApp integration:")
-        
-        # Help information
-        with st.expander("ℹ️ How to get WaPulse credentials"):
-            st.markdown("""
-            **Steps to get your WaPulse credentials:**
-            
-            1. **Sign up** at [WaPulse](https://wapulse.com)
-            2. **Create an instance** in your dashboard
-            3. **Copy your Instance ID** from the instance details
-            4. **Generate an API token** in your account settings
-            5. **Paste both values** in the form below
-            
-            **Note:** Your credentials are stored securely and only used for WhatsApp messaging.
-            """)
-        
-        # Configuration form
-        with st.form("whatsapp_config", clear_on_submit=False):
-            instance_id = st.text_input(
-                "Instance ID", 
-                value=whatsapp_client.instance_id if whatsapp_client.instance_id else "",
-                help="Your WaPulse instance ID",
-                key="wa_instance_id"
-            )
-            
-            token = st.text_input(
-                "API Token", 
-                value="",
-                type="password",
-                help="Your WaPulse API token",
-                placeholder="Enter your API token" if not whatsapp_client.token else "Token is configured",
-                key="wa_token"
-            )
-            
-            # Single submit button for the form
-            submitted = st.form_submit_button("💾 Save Configuration", use_container_width=True)
-        
-        # Handle form submission
-        if submitted:
-            if instance_id and token:
-                with st.spinner("Configuring WhatsApp integration..."):
-                    if configure_whatsapp(instance_id, token):
-                        st.success("✅ WhatsApp configuration saved successfully!")
-                        st.session_state.whatsapp_configured = True
-                        st.balloons()  # Celebration effect
-                        time.sleep(1)  # Brief pause before rerun
-                        st.rerun()  # Refresh to show updated status
-                    else:
-                        st.error("❌ Failed to configure WhatsApp integration")
-                        st.session_state.whatsapp_configured = False
-            else:
-                st.warning("⚠️ Please provide both Instance ID and Token")
-        
-        # Separate test connection button outside the form
-        if st.button("🧪 Test Connection", use_container_width=True):
-            if whatsapp_client.is_configured():
-                with st.spinner("Testing WhatsApp connection..."):
-                    status = whatsapp_client.get_instance_status()
-                    if status.get("configured"):
-                        st.success(f"✅ Connection successful! Status: {status.get('status')}")
-                        st.info(f"📱 Instance ID: {whatsapp_client.instance_id}")
-                    else:
-                        st.error(f"❌ Connection failed: {status.get('error', 'Unknown error')}")
-            else:
-                st.warning("⚠️ Please configure WhatsApp first")
-        
-        # Current status
-        if whatsapp_client.is_configured():
-            st.success("✅ WhatsApp integration is configured")
-            status = whatsapp_client.get_instance_status()
-            st.caption(f"Instance: {whatsapp_client.instance_id}")
-            st.caption(f"Status: {status.get('status', 'Unknown')}")
-        else:
-            st.warning("⚠️ WhatsApp integration not configured")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Notification Settings
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<h3 class="main-header">🔔 Notification Settings</h3>', unsafe_allow_html=True)
-        
-        # Default recipients
-        default_recipients = st.text_area(
-            "Default Recipients",
-            placeholder="Enter phone numbers (one per line)\nExample: 1234567890",
-            help="Phone numbers to receive notifications (include country code, no + or spaces)"
-        )
-        
-        # Notification types
-        st.markdown("**Notification Types:**")
-        notify_scrape_complete = st.checkbox("Scraping completion notifications", value=True)
-        notify_scrape_error = st.checkbox("Scraping error notifications", value=True)
-        notify_report_ready = st.checkbox("Analysis report ready notifications", value=False)
-        
-        # File sharing settings
-        st.markdown("**File Sharing:**")
-        share_html_templates = st.checkbox("Share HTML templates", value=True)
-        share_json_reports = st.checkbox("Share JSON reports", value=True)
-        share_charts = st.checkbox("Share analysis charts", value=True)
-        
-        max_file_size = st.slider("Max file size (MB)", 1, 25, 10)
-        
-        if st.button("💾 Save Notification Settings"):
-            # Here you would save these settings to your config
-            st.success("✅ Notification settings saved!")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    else:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.warning("📱 WhatsApp integration is not available. Please install required dependencies.")
-        st.markdown('</div>', unsafe_allow_html=True)
+    light_theme = """
+    <style>
+    .stApp {background-color: #FFFFFF !important;}
+    .card {background-color: #F8F9FA !important; color: #212529 !important;}
+    .main-header {color: #0D6EFD !important;}
+    </style>
+    """
 
-elif page == "About":
-    st.title("About This Web Scraper")
-    st.markdown("""
-    <div class="card">
-    <h2>AI-Powered Web Scraper</h2>
-    <p>This web scraper combines the power of crawl4ai for efficient web crawling with DeepSeek AI for intelligent content analysis.</p>
-    
-    <h3>Key Features:</h3>
-    <ul>
-        <li>🕸️ <strong>Multi-threaded crawling</strong> - Crawl websites efficiently with parallel processing</li>
-        <li>🧠 <strong>AI-powered analysis</strong> - Leverage DeepSeek AI to summarize and analyze web content</li>
-        <li>📊 <strong>Technical reports</strong> - Get detailed technical information about each page</li>
-        <li>📥 <strong>Export options</strong> - Download results in multiple formats</li>
-        <li>🔍 <strong>Custom prompts</strong> - Create your own AI analysis instructions</li>
-        <li>📱 <strong>WhatsApp integration</strong> - Send reports and notifications via WhatsApp</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
+    blue_theme = """
+    <style>
+    .stApp {background-color: #E3F2FD !important;}
+    .card {background-color: white !important;}
+    .main-header {color: #0D47A1 !important;}
+    </style>
+    """
 
-elif page == "Scraper":
-    st.title("🤖 AI-Powered Web Scraper")
-    st.markdown("""
-    A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
-    """)
+    # New futuristic theme with glassmorphism and neon effects
+    futuristic_theme = """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
 
-    # System prompts for different summarization styles
-    system_prompts = {
-        "Default": "You are a helpful AI assistant. Your task is to summarize the provided web page content.",
-        "Concise (2-3 Sentences)": "You are an AI assistant. Summarize the provided web page content concisely, in 2-3 sentences.",
-        "Detailed (Key Points)": "You are an AI assistant. Provide a detailed summary of the web page content, covering main points, arguments, and conclusions.",
-        "Bullet Points": "You are an AI assistant. Summarize the web page content as a list of bullet points, highlighting the key information."
+    .stApp {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e) !important;
+        background-size: 400% 400% !important;
+        animation: gradient 15s ease infinite !important;
+        font-family: 'Orbitron', sans-serif !important;
     }
 
-    # Create a card-like container for the main input
-    st.markdown('<div class="card">', unsafe_allow_html=True)
+    @keyframes gradient {
+        0% { background-position: 0% 50% !important; }
+        50% { background-position: 100% 50% !important; }
+        100% { background-position: 0% 50% !important; }
+    }
 
-    # Input for target URL with URL validation
-    target_url = st.text_input("Target URL", "https://example.com")
+    .card {
+        background: rgba(25, 25, 35, 0.7) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #e0f7fa !important;
+        margin-bottom: 20px !important;
+        padding: 20px !important;
+    }
 
-    # Validate URL format
-    if target_url:
-        try:
-            result = urlparse(target_url)
-            is_valid = all([result.scheme, result.netloc])
-            if not is_valid:
-                st.warning("Please enter a valid URL including http:// or https://")
-        except:
-            st.warning("Please enter a valid URL")
+    .main-header {
+        color: #80deea !important;
+        text-shadow: 0 0 10px rgba(128, 222, 234, 0.7), 0 0 20px rgba(128, 222, 234, 0.5) !important;
+        font-weight: 700 !important;
+        font-family: 'Orbitron', sans-serif !important;
+        letter-spacing: 2px !important;
+    }
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    .stTextInput>div>div>input {
+        background-color: rgba(30, 30, 40, 0.8) !important;
+        color: #e0f7fa !important;
+        border: 1px solid rgba(128, 222, 234, 0.5) !important;
+        border-radius: 8px !important;
+    }
 
-    # Advanced crawling parameters
-    with st.expander("Advanced Crawling Parameters"):
+    .stSelectbox>div>div>div {
+        background-color: rgba(30, 30, 40, 0.8) !important;
+        color: #e0f7fa !important;
+        border: 1px solid rgba(128, 222, 234, 0.5) !important;
+        border-radius: 8px !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: rgba(25, 25, 35, 0.5) !important;
+        border-radius: 8px !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: #80deea !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(128, 222, 234, 0.2) !important;
+        border-bottom: 2px solid #80deea !important;
+    }
+
+    .stMarkdown {
+        color: #e0f7fa !important;
+    }
+
+    .stDataFrame {
+        color: #e0f7fa !important;
+    }
+
+    .stButton>button {
+        background: linear-gradient(45deg, #00bcd4, #80deea) !important;
+        color: #0f2027 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        box-shadow: 0 0 10px rgba(0, 188, 212, 0.5) !important;
+        transition: all 0.3s ease !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-weight: 500 !important;
+        letter-spacing: 1px !important;
+    }
+
+    .stButton>button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 0 15px rgba(0, 188, 212, 0.8) !important;
+    }
+
+    .stExpander {
+        background-color: rgba(25, 25, 35, 0.7) !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(128, 222, 234, 0.3) !important;
+        color: #e0f7fa !important;
+    }
+
+    .stRadio>div {
+        color: #e0f7fa !important;
+    }
+
+    .stSidebar .stButton>button {
+        background: linear-gradient(45deg, #00bcd4, #80deea) !important;
+        color: #0f2027 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Custom progress bar */
+    .stProgress > div > div > div > div {
+        background-color: #00bcd4 !important;
+        background: linear-gradient(90deg, #00bcd4, #80deea) !important;
+        box-shadow: 0 0 10px rgba(0, 188, 212, 0.7) !important;
+    }
+
+    /* Custom sidebar */
+    .css-1d391kg, .css-12oz5g7 {
+        background: rgba(15, 15, 25, 0.9) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+    }
+
+    /* Custom metric */
+    .stMetric {
+        background: rgba(25, 25, 35, 0.7) !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
+        border: 1px solid rgba(128, 222, 234, 0.3) !important;
+    }
+
+    /* Pulsing effect for important elements */
+    .pulse {
+        animation: pulse 2s infinite !important;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7) !important; }
+        70% { box-shadow: 0 0 0 10px rgba(0, 188, 212, 0) !important; }
+        100% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0) !important; }
+    }
+    </style>
+    """
+
+    # Apply theme based on session state
+    if st.session_state.theme == "Dark":
+        st.markdown(dark_theme, unsafe_allow_html=True)
+    elif st.session_state.theme == "Light":
+        st.markdown(light_theme, unsafe_allow_html=True)
+    elif st.session_state.theme == "Blue":
+        st.markdown(blue_theme, unsafe_allow_html=True)
+    elif st.session_state.theme == "Futuristic":
+        st.markdown(futuristic_theme, unsafe_allow_html=True)
+        st.title("Settings")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+    
+        # Cache settings with futuristic styling
+        st.markdown('<h3 class="main-header">Cache Settings</h3>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
-        
+    
         with col1:
-            # Input for crawl depth
-            crawl_depth = st.slider("Crawl Depth", min_value=1, max_value=5, value=1, help="How many links deep to crawl")
-            
-            # Input for max pages
-            max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=4, help="Maximum number of pages to crawl")
-            
-            # Input for request timeout
-            timeout = st.number_input("Request Timeout (seconds)", min_value=1, max_value=60, value=10, help="Timeout for each HTTP request")
-            
-            # Parallel workers
-            max_workers = st.slider("Parallel Workers", min_value=1, max_value=10, value=5, help="Number of parallel requests to make")
-        
+            if st.button("🧹 Clear Session Cache"):
+                # Clear session state for cached data
+                for key in ["crawl_results", "pages_text", "technical_report", "summaries", "qa_results"]:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.success("Session cache cleared successfully!")
+    
         with col2:
-            # Domain restriction options
-            domain_restriction = st.radio(
-                "Domain Restriction", 
-                ["Stay in same domain", "Allow all domains", "Custom domain list"],
-                index=0,
-                help="Control which domains the crawler can visit")
-            
-            # Custom domain list (if selected)
-            custom_domains = ""
-            if domain_restriction == "Custom domain list":
-                custom_domains = st.text_area(
-                    "Allowed Domains", 
-                    "", 
-                    help="Enter domains to allow, one per line (e.g., example.com)")
-            
-            # User agent
-            user_agent = st.text_input(
-                "User Agent", 
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                help="Custom user agent for requests")
-            
-            # Add robots.txt compliance option
-            respect_robots = st.checkbox("Respect robots.txt", value=True, help="Follow robots.txt rules for ethical scraping")
-            
-            # Cache option
-            use_cache = st.checkbox("Use cached results if available", value=True, help="Use previously cached results to speed up repeated crawls")
+            if st.button("🗑️ Clear Disk Cache"):
+                # Clear disk cache
+                try:
+                    cache.clear()
+                    st.success("Disk cache cleared successfully!")
+                except Exception as e:
+                    st.error(f"Error clearing disk cache: {e}")
+    
+        # Add color preview boxes
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("""
+            <div style="background-color: #FFFFFF; color: #000000; padding: 10px; border-radius: 5px; text-align: center;">Light</div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown("""
+            <div style="background-color: #121212; color: #E0E0E0; padding: 10px; border-radius: 5px; text-align: center;">Dark</div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown("""
+            <div style="background-color: #E3F2FD; color: #0D47A1; padding: 10px; border-radius: 5px; text-align: center;">Blue</div>
+            """, unsafe_allow_html=True)
+    
+        # Theme settings outside of form
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="main-header">Theme Settings</h3>', unsafe_allow_html=True)
+    
+        # Store theme preference in session state
+        theme_options = ["Futuristic", "Light", "Dark", "Blue"]
+        current_theme = st.session_state.theme if st.session_state.theme in theme_options else "Futuristic"
+        theme = st.selectbox("Select Theme", theme_options, 
+                           index=theme_options.index(current_theme),
+                           key="theme_select")
+    
+        if st.button("Apply Theme", key="apply_theme_btn"):
+            st.session_state.theme = theme
+            st.rerun()
+    
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+        # API Key management
+        st.subheader("API Keys")
+    
+        # DeepSeek API Key input
+        deepseek_key = st.text_input("DeepSeek API Key", type="password", 
+                                    help="Enter your DeepSeek API key for AI analysis")
+    
+        if st.button("Save API Key"):
+            if deepseek_key:
+                # Save to session state (in production, save to secrets)
+                st.session_state.deepseek_api_key = deepseek_key
+                st.success("API Key saved successfully!")
+            else:
+                st.error("Please enter a valid API key")
+    
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input for keywords with futuristic styling
-    keywords = st.text_input("🔍 Keywords (optional)", help="Comma-separated keywords to filter pages")
+    # --- UI Inputs ---
+    # Add a sidebar for better navigation
+    st.sidebar.title("Navigation")
 
-    # Operation mode selection with futuristic styling
-    st.markdown('<h4 class="main-header">AI Analysis Mode</h4>', unsafe_allow_html=True)
-    operation_mode = st.radio("Select Operation Mode", ["✨ Summarize", "❓ Question & Answer"], index=0)
+    # Navigation with futuristic styling
+    st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+    st.sidebar.markdown('<h3 class="main-header">Navigation</h3>', unsafe_allow_html=True)
+    page = st.sidebar.radio("Go to", ["Scraper", "Analytics", "Settings"])
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-    # Question input if asking a question
-    user_question = ""
-    if operation_mode == "❓ Question & Answer":
-        question = st.text_input("🤔 Enter your question about the content:")
+    # WhatsApp Integration Settings in Sidebar
+    if WHATSAPP_AVAILABLE:
+        st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+        st.sidebar.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
+    
+        whatsapp_client = get_whatsapp_client()
+    
+        if whatsapp_client.is_configured():
+            st.sidebar.success("✅ WhatsApp Configured")
+            status = whatsapp_client.get_instance_status()
+            st.sidebar.caption(f"Status: {status.get('status', 'Unknown')}")
+        else:
+            st.sidebar.warning("⚠️ WhatsApp Not Configured")
+    
+        if st.sidebar.button("⚙️ Configure WhatsApp"):
+            st.session_state.show_whatsapp_config = True
+    
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-    # Custom prompt input
-    custom_prompt = ""
-    custom_language = "English"
-    if operation_mode == "✨ Summarize":
-        summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
-        summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
-        summary_temperature = 0.7  # Default temperature for summaries
-
-    # DeepSeek API Key - Using Streamlit secrets management
-    # For local development, you can use st.secrets or environment variables
-    try:
-        # Try to get from Streamlit secrets (for deployment)
-        DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
-    except:
-        # Fallback for local development
-        import os
-        DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+    # Main content based on navigation
+    if page == "Analytics":
+        st.markdown('<h1 class="main-header">Analytics Dashboard</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+    
+        if st.session_state.get("crawl_results"):
+            # URL Health Monitoring
+            st.markdown('<h3 class="main-header">URL Health Monitoring</h3>', unsafe_allow_html=True)
         
-        # If no API key found, show input field
-        if not DEEPSEEK_API_KEY:
-            # API Key management with futuristic styling
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown('<h3 class="main-header">API Keys</h3>', unsafe_allow_html=True)
+            # Select URLs to check health
+            urls_to_check = [result['url'] for result in st.session_state.crawl_results[:10]]  # Limit to first 10 URLs
+            selected_urls = st.multiselect("Select URLs to check health status", urls_to_check, default=urls_to_check[:3])
+        
+            if st.button("🔍 Check URL Health"):
+                health_results = []
+                progress_bar = st.progress(0)
             
-            # DeepSeek API Key
-            api_key = st.text_input("DeepSeek API Key", value="", type="password")
-            if st.button("💾 Save API Key"):
-                # In a real app, you'd save this securely. For demo, we'll just update the session state
-                st.session_state.deepseek_api_key = api_key
-                st.success("API Key saved!")
+                for i, url in enumerate(selected_urls):
+                    health_data = check_url_health(url)
+                    health_results.append({
+                        "URL": url,
+                        "Status Code": health_data["status_code"],
+                        "Response Time (s)": health_data["response_time"],
+                        "Is Healthy": health_data["is_healthy"]
+                    })
+                    progress_bar.progress((i + 1) / len(selected_urls))
+            
+                # Display health results
+                health_df = pd.DataFrame(health_results)
+                st.session_state.health_results = health_df
+            
+                # Display metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    healthy_count = health_df[health_df["Is Healthy"] == True].shape[0]
+                    st.metric("Healthy URLs", healthy_count, f"{healthy_count/len(health_df)*100:.1f}%")
+                with col2:
+                    avg_response = health_df["Response Time (s)"].mean()
+                    st.metric("Avg Response Time", f"{avg_response:.3f}s")
+                with col3:
+                    status_ok = health_df[health_df["Status Code"] == 200].shape[0]
+                    st.metric("Status 200 OK", status_ok, f"{status_ok/len(health_df)*100:.1f}%")
+            
+                # Display detailed health data
+                st.dataframe(health_df)
+        else:
+            st.info("Run a crawl first to access analytics features.")
+    
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif page == "Settings":
+        st.markdown('<h1 class="main-header">⚙️ Settings</h1>', unsafe_allow_html=True)
+    
+        # WhatsApp Configuration Section
+        if WHATSAPP_AVAILABLE:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
+        
+            # Initialize session state for WhatsApp config
+            if 'whatsapp_configured' not in st.session_state:
+                st.session_state.whatsapp_configured = False
+        
+            whatsapp_client = get_whatsapp_client()
+        
+            st.markdown("Configure your WaPulse WhatsApp integration:")
+        
+            # Help information
+            with st.expander("ℹ️ How to get WaPulse credentials"):
+                st.markdown("""
+                **Steps to get your WaPulse credentials:**
+            
+                1. **Sign up** at [WaPulse](https://wapulse.com)
+                2. **Create an instance** in your dashboard
+                3. **Copy your Instance ID** from the instance details
+                4. **Generate an API token** in your account settings
+                5. **Paste both values** in the form below
+            
+                **Note:** Your credentials are stored securely and only used for WhatsApp messaging.
+                """)
+        
+            # Configuration form
+            with st.form("whatsapp_config", clear_on_submit=False):
+                instance_id = st.text_input(
+                    "Instance ID", 
+                    value=whatsapp_client.instance_id if whatsapp_client.instance_id else "",
+                    help="Your WaPulse instance ID",
+                    key="wa_instance_id"
+                )
+            
+                token = st.text_input(
+                    "API Token", 
+                    value="",
+                    type="password",
+                    help="Your WaPulse API token",
+                    placeholder="Enter your API token" if not whatsapp_client.token else "Token is configured",
+                    key="wa_token"
+                )
+            
+                # Single submit button for the form
+                submitted = st.form_submit_button("💾 Save Configuration", use_container_width=True)
+        
+            # Handle form submission
+            if submitted:
+                if instance_id and token:
+                    with st.spinner("Configuring WhatsApp integration..."):
+                        if configure_whatsapp(instance_id, token):
+                            st.success("✅ WhatsApp configuration saved successfully!")
+                            st.session_state.whatsapp_configured = True
+                            st.balloons()  # Celebration effect
+                            time.sleep(1)  # Brief pause before rerun
+                            st.rerun()  # Refresh to show updated status
+                        else:
+                            st.error("❌ Failed to configure WhatsApp integration")
+                            st.session_state.whatsapp_configured = False
+                else:
+                    st.warning("⚠️ Please provide both Instance ID and Token")
+        
+            # Separate test connection button outside the form
+            if st.button("🧪 Test Connection", use_container_width=True):
+                if whatsapp_client.is_configured():
+                    with st.spinner("Testing WhatsApp connection..."):
+                        status = whatsapp_client.get_instance_status()
+                        if status.get("configured"):
+                            st.success(f"✅ Connection successful! Status: {status.get('status')}")
+                            st.info(f"📱 Instance ID: {whatsapp_client.instance_id}")
+                        else:
+                            st.error(f"❌ Connection failed: {status.get('error', 'Unknown error')}")
+                else:
+                    st.warning("⚠️ Please configure WhatsApp first")
+        
+            # Current status
+            if whatsapp_client.is_configured():
+                st.success("✅ WhatsApp integration is configured")
+                status = whatsapp_client.get_instance_status()
+                st.caption(f"Instance: {whatsapp_client.instance_id}")
+                st.caption(f"Status: {status.get('status', 'Unknown')}")
+            else:
+                st.warning("⚠️ WhatsApp integration not configured")
+        
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+            # Notification Settings
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown('<h3 class="main-header">🔔 Notification Settings</h3>', unsafe_allow_html=True)
+        
+            # Default recipients
+            default_recipients = st.text_area(
+                "Default Recipients",
+                placeholder="Enter phone numbers (one per line)\nExample: 1234567890",
+                help="Phone numbers to receive notifications (include country code, no + or spaces)"
+            )
+        
+            # Notification types
+            st.markdown("**Notification Types:**")
+            notify_scrape_complete = st.checkbox("Scraping completion notifications", value=True)
+            notify_scrape_error = st.checkbox("Scraping error notifications", value=True)
+            notify_report_ready = st.checkbox("Analysis report ready notifications", value=False)
+        
+            # File sharing settings
+            st.markdown("**File Sharing:**")
+            share_html_templates = st.checkbox("Share HTML templates", value=True)
+            share_json_reports = st.checkbox("Share JSON reports", value=True)
+            share_charts = st.checkbox("Share analysis charts", value=True)
+        
+            max_file_size = st.slider("Max file size (MB)", 1, 25, 10)
+        
+            if st.button("💾 Save Notification Settings"):
+                # Here you would save these settings to your config
+                st.success("✅ Notification settings saved!")
+        
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+        else:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.warning("📱 WhatsApp integration is not available. Please install required dependencies.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- Scrape Button ---
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<h3 class="main-header">Start Scraping</h3>', unsafe_allow_html=True)
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        start_button = st.button("🚀 Start Scraping", use_container_width=True)
-    with col2:
-        clear_results = st.button("🗑️ Clear Results", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    elif page == "About":
+        st.title("About This Web Scraper")
+        st.markdown("""
+        <div class="card">
+        <h2>AI-Powered Web Scraper</h2>
+        <p>This web scraper combines the power of crawl4ai for efficient web crawling with DeepSeek AI for intelligent content analysis.</p>
+    
+        <h3>Key Features:</h3>
+        <ul>
+            <li>🕸️ <strong>Multi-threaded crawling</strong> - Crawl websites efficiently with parallel processing</li>
+            <li>🧠 <strong>AI-powered analysis</strong> - Leverage DeepSeek AI to summarize and analyze web content</li>
+            <li>📊 <strong>Technical reports</strong> - Get detailed technical information about each page</li>
+            <li>📥 <strong>Export options</strong> - Download results in multiple formats</li>
+            <li>🔍 <strong>Custom prompts</strong> - Create your own AI analysis instructions</li>
+            <li>📱 <strong>WhatsApp integration</strong> - Send reports and notifications via WhatsApp</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Add a session state to store results between reruns
-    if 'crawl_results' not in st.session_state:
-        st.session_state.crawl_results = None
-        
-    # Clear results if requested
-    if clear_results:
-        st.session_state.crawl_results = None
-        st.rerun()
+    elif page == "Scraper":
+        st.title("🤖 AI-Powered Web Scraper")
+        st.markdown("""
+        A simple web scraper that uses crawl4ai to fetch web content and DeepSeek API for AI-powered analysis.
+        """)
 
-    # Display visualizations if we have results
-    if st.session_state.crawl_results:
-        with st.expander("📊 Data Visualizations"):
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown('<h2 class="main-header">Crawl Analysis</h2>', unsafe_allow_html=True)
-            
-            # Create tabs for different visualizations with futuristic styling
-            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Crawled Pages", "📝 Content", "⚙️ Technical Report", "😊 Sentiment Analysis", "🧠 AI Analysis"])
-            
-            with tab1:
-                # Create a DataFrame for element counts across pages
-                element_data = []
-                for page in st.session_state.crawl_results:
-                    if "report" in page and "element_counts" in page["report"]:
-                        for element, count in page["report"]["element_counts"].items():
-                            element_data.append({
-                                "url": page["url"],
-                                "element": element,
-                                "count": count
-                            })
-                
-                if element_data:
-                    df_elements = pd.DataFrame(element_data)
-                    
-                    # Group by element type and sum counts
-                    element_summary = df_elements.groupby("element")["count"].sum().reset_index()
-                    element_summary = element_summary.sort_values("count", ascending=False).head(10)
-                    
-                    # Create bar chart
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    sns.barplot(x="count", y="element", data=element_summary, palette="viridis")
-                    plt.title("Top 10 HTML Elements Across All Pages")
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    
-                    # Show the data table
-                    st.dataframe(element_summary)
-            
-            with tab5:
-                # AI analysis
-                st.write("AI Analysis")
-                
-                # Display crawl errors if any with futuristic styling
-                if "errors" in st.session_state and st.session_state.errors:
-                    st.markdown('<div class="card">', unsafe_allow_html=True)
-                    with st.expander(f"⚠️ Crawling Errors ({len(st.session_state.errors)})"):
-                        st.json(st.session_state.errors)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Display AI analysis results
-                if "summaries" in st.session_state:
-                    st.dataframe(st.session_state.summaries)
-                else:
-                    st.info("No AI analysis results available.")
-        
-        # This line was causing issues - removing it
+        # System prompts for different summarization styles
+        system_prompts = {
+            "Default": "You are a helpful AI assistant. Your task is to summarize the provided web page content.",
+            "Concise (2-3 Sentences)": "You are an AI assistant. Summarize the provided web page content concisely, in 2-3 sentences.",
+            "Detailed (Key Points)": "You are an AI assistant. Provide a detailed summary of the web page content, covering main points, arguments, and conclusions.",
+            "Bullet Points": "You are an AI assistant. Summarize the web page content as a list of bullet points, highlighting the key information."
+        }
 
-    if start_button:
-        if not target_url:
-            st.warning("Please enter a target URL.")
-        # Removed API key check from UI as it's hardcoded
-        else:
-            st.info("Starting crawl with crawl4ai...")
-            # --- Crawl4ai usage (placeholder) ---
+        # Create a card-like container for the main input
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        # Input for target URL with URL validation
+        target_url = st.text_input("Target URL", "https://example.com")
+
+        # Validate URL format
+        if target_url:
             try:
-                # Using our async crawler implementation with futuristic UI
+                result = urlparse(target_url)
+                is_valid = all([result.scheme, result.netloc])
+                if not is_valid:
+                    st.warning("Please enter a valid URL including http:// or https://")
+            except:
+                st.warning("Please enter a valid URL")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Advanced crawling parameters
+        with st.expander("Advanced Crawling Parameters"):
+            col1, col2 = st.columns(2)
+        
+            with col1:
+                # Input for crawl depth
+                crawl_depth = st.slider("Crawl Depth", min_value=1, max_value=5, value=1, help="How many links deep to crawl")
+            
+                # Input for max pages
+                max_pages = st.number_input("Maximum Pages", min_value=1, max_value=100, value=4, help="Maximum number of pages to crawl")
+            
+                # Input for request timeout
+                timeout = st.number_input("Request Timeout (seconds)", min_value=1, max_value=60, value=10, help="Timeout for each HTTP request")
+            
+                # Parallel workers
+                max_workers = st.slider("Parallel Workers", min_value=1, max_value=10, value=5, help="Number of parallel requests to make")
+        
+            with col2:
+                # Domain restriction options
+                domain_restriction = st.radio(
+                    "Domain Restriction", 
+                    ["Stay in same domain", "Allow all domains", "Custom domain list"],
+                    index=0,
+                    help="Control which domains the crawler can visit")
+            
+                # Custom domain list (if selected)
+                custom_domains = ""
+                if domain_restriction == "Custom domain list":
+                    custom_domains = st.text_area(
+                        "Allowed Domains", 
+                        "", 
+                        help="Enter domains to allow, one per line (e.g., example.com)")
+            
+                # User agent
+                user_agent = st.text_input(
+                    "User Agent", 
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                    help="Custom user agent for requests")
+            
+                # Add robots.txt compliance option
+                respect_robots = st.checkbox("Respect robots.txt", value=True, help="Follow robots.txt rules for ethical scraping")
+            
+                # Cache option
+                use_cache = st.checkbox("Use cached results if available", value=True, help="Use previously cached results to speed up repeated crawls")
+
+        # Input for keywords with futuristic styling
+        keywords = st.text_input("🔍 Keywords (optional)", help="Comma-separated keywords to filter pages")
+
+        # Operation mode selection with futuristic styling
+        st.markdown('<h4 class="main-header">AI Analysis Mode</h4>', unsafe_allow_html=True)
+        operation_mode = st.radio("Select Operation Mode", ["✨ Summarize", "❓ Question & Answer"], index=0)
+
+        # Question input if asking a question
+        user_question = ""
+        if operation_mode == "❓ Question & Answer":
+            question = st.text_input("🤔 Enter your question about the content:")
+
+        # Custom prompt input
+        custom_prompt = ""
+        custom_language = "English"
+        if operation_mode == "✨ Summarize":
+            summary_language = st.selectbox("Summary Language", ["English", "Hebrew"], index=0)
+            summary_style = st.selectbox("Summary Style", list(system_prompts.keys()), index=0, help="Choose the style of summary to generate.")
+            summary_temperature = 0.7  # Default temperature for summaries
+
+        # DeepSeek API Key - Using Streamlit secrets management
+        # For local development, you can use st.secrets or environment variables
+        try:
+            # Try to get from Streamlit secrets (for deployment)
+            DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
+        except:
+            # Fallback for local development
+            import os
+            DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+        
+            # If no API key found, show input field
+            if not DEEPSEEK_API_KEY:
+                # API Key management with futuristic styling
                 st.markdown('<div class="card">', unsafe_allow_html=True)
-                st.markdown(f"<h3 class='main-header'>Crawling {target_url} to depth {crawl_depth}...</h3>", unsafe_allow_html=True)
-                
-                # Show a futuristic progress animation
-                with st.spinner("Initializing crawl process..."):
-                    crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
-                                                  custom_domains, user_agent, max_workers, respect_robots, use_cache)
-                if crawl_results:
-                    st.success(f"✅ Crawling complete! {len(crawl_results)} pages fetched.")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    # Store results in session state
-                    st.session_state.crawl_results = crawl_results
-                else:
-                    st.error("No pages were fetched. Check the URL or crawl parameters.")
-            except Exception as e:
-                st.error(f"❌ Error during crawling: {str(e)}")
+                st.markdown('<h3 class="main-header">API Keys</h3>', unsafe_allow_html=True)
+            
+                # DeepSeek API Key
+                api_key = st.text_input("DeepSeek API Key", value="", type="password")
+                if st.button("💾 Save API Key"):
+                    # In a real app, you'd save this securely. For demo, we'll just update the session state
+                    st.session_state.deepseek_api_key = api_key
+                    st.success("API Key saved!")
                 st.markdown('</div>', unsafe_allow_html=True)
-                crawl_results = []
-            # --- DeepSeek API usage ---
-            if crawl_results:
-                # Convert HTML to plain text for each page
-                for page in crawl_results:
-                    page["text"] = html_to_text(page["content"])
-                    page["report"] = generate_technical_report(page["content"], page["url"])
 
-                st.info("Sending data to DeepSeek API...")
+        # --- Scrape Button ---
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="main-header">Start Scraping</h3>', unsafe_allow_html=True)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            start_button = st.button("🚀 Start Scraping", use_container_width=True)
+        with col2:
+            clear_results = st.button("🗑️ Clear Results", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-                # Perform AI analysis based on operation mode with futuristic styling
+        # Add a session state to store results between reruns
+        if 'crawl_results' not in st.session_state:
+            st.session_state.crawl_results = None
+        
+        # Clear results if requested
+        if clear_results:
+            st.session_state.crawl_results = None
+            st.rerun()
+
+        # Display visualizations if we have results
+        if st.session_state.crawl_results:
+            with st.expander("📊 Data Visualizations"):
                 st.markdown('<div class="card">', unsafe_allow_html=True)
-                st.markdown('<h3 class="main-header">AI Analysis</h3>', unsafe_allow_html=True)
+                st.markdown('<h2 class="main-header">Crawl Analysis</h2>', unsafe_allow_html=True)
+            
+                # Create tabs for different visualizations with futuristic styling
+                tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Crawled Pages", "📝 Content", "⚙️ Technical Report", "😊 Sentiment Analysis", "🧠 AI Analysis"])
+            
+                with tab1:
+                    # Create a DataFrame for element counts across pages
+                    element_data = []
+                    for page in st.session_state.crawl_results:
+                        if "report" in page and "element_counts" in page["report"]:
+                            for element, count in page["report"]["element_counts"].items():
+                                element_data.append({
+                                    "url": page["url"],
+                                    "element": element,
+                                    "count": count
+                                })
                 
-                if operation_mode == "✨ Summarize":
-                    with st.spinner("Generating AI summaries..."):
-                        # Define temperature for summaries if not already defined
-                        if 'summary_temperature' not in locals():
-                            summary_temperature = 0.7
+                    if element_data:
+                        df_elements = pd.DataFrame(element_data)
+                    
+                        # Group by element type and sum counts
+                        element_summary = df_elements.groupby("element")["count"].sum().reset_index()
+                        element_summary = element_summary.sort_values("count", ascending=False).head(10)
+                    
+                        # Create bar chart
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        sns.barplot(x="count", y="element", data=element_summary, palette="viridis")
+                        plt.title("Top 10 HTML Elements Across All Pages")
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                    
+                        # Show the data table
+                        st.dataframe(element_summary)
+            
+                with tab5:
+                    # AI analysis
+                    st.write("AI Analysis")
+                
+                    # Display crawl errors if any with futuristic styling
+                    if "errors" in st.session_state and st.session_state.errors:
+                        st.markdown('<div class="card">', unsafe_allow_html=True)
+                        with st.expander(f"⚠️ Crawling Errors ({len(st.session_state.errors)})"):
+                            st.json(st.session_state.errors)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                
+                    # Display AI analysis results
+                    if "summaries" in st.session_state:
+                        st.dataframe(st.session_state.summaries)
+                    else:
+                        st.info("No AI analysis results available.")
+        
+            # This line was causing issues - removing it
 
-                        # Helper to build prompt for a page
+        if start_button:
+            if not target_url:
+                st.warning("Please enter a target URL.")
+            # Removed API key check from UI as it's hardcoded
+            else:
+                st.info("Starting crawl with crawl4ai...")
+                # --- Crawl4ai usage (placeholder) ---
+                try:
+                    # Using our async crawler implementation with futuristic UI
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.markdown(f"<h3 class='main-header'>Crawling {target_url} to depth {crawl_depth}...</h3>", unsafe_allow_html=True)
+                
+                    # Show a futuristic progress animation
+                    with st.spinner("Initializing crawl process..."):
+                        crawl_results = perform_crawl(target_url, crawl_depth, max_pages, timeout, domain_restriction, 
+                                                      custom_domains, user_agent, max_workers, respect_robots, use_cache)
+                    if crawl_results:
+                        st.success(f"✅ Crawling complete! {len(crawl_results)} pages fetched.")
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        # Store results in session state
+                        st.session_state.crawl_results = crawl_results
+                    else:
+                        st.error("No pages were fetched. Check the URL or crawl parameters.")
+                except Exception as e:
+                    st.error(f"❌ Error during crawling: {str(e)}")
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    crawl_results = []
+                # --- DeepSeek API usage ---
+                if crawl_results:
+                    # Convert HTML to plain text for each page
+                    for page in crawl_results:
+                        page["text"] = html_to_text(page["content"])
+                        page["report"] = generate_technical_report(page["content"], page["url"])
+
+                    st.info("Sending data to DeepSeek API...")
+
+                    # Perform AI analysis based on operation mode with futuristic styling
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.markdown('<h3 class="main-header">AI Analysis</h3>', unsafe_allow_html=True)
+                
+                    if operation_mode == "✨ Summarize":
+                        with st.spinner("Generating AI summaries..."):
+                            # Define temperature for summaries if not already defined
+                            if 'summary_temperature' not in locals():
+                                summary_temperature = 0.7
+
+                            # Helper to build prompt for a page
+
+    # Sidebar with futuristic styling
+    st.sidebar.markdown('<h1 class="main-header">NeoScraper AI</h1>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+
                         def build_summary_prompt(page_text, page_url):
                             base_prompt = f"Please summarize the following webpage content from {page_url}:\n\n{page_text}"
                             if summary_language == "Hebrew":
@@ -3048,6 +3050,9 @@ elif page == "Scraper":
                             st.session_state.page = "Settings"
                             st.rerun()
 
-# --- Footer ---
-st.markdown("---")
-st.caption("Built with Streamlit, crawl4ai, and DeepSeek API. 🦾")
+    # --- Footer ---
+    st.markdown("---")
+    st.caption("Built with Streamlit, crawl4ai, and DeepSeek API. 🦾")
+
+if __name__ == "__main__":
+    main()
