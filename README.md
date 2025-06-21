@@ -6,6 +6,7 @@ A comprehensive, modular web scraping and analysis tool built with Python and St
 
 - **Multi-depth Web Crawling**: Crawl websites with configurable depth and domain restrictions
 - **🧠 AI-Powered Analysis**: DeepSeek integration for intelligent content analysis and summarization
+- **📱 WhatsApp Integration**: Send reports and notifications via WhatsApp using WaPulse MCP
 - **Comprehensive Technical Analysis**: Analyze HTML structure, SEO, accessibility, performance, and more
 - **Visual Analytics**: Generate charts and dashboards for better insights
 - **Website Blueprint Generation**: Create detailed reconstruction guides with downloadable templates
@@ -21,6 +22,17 @@ A comprehensive, modular web scraping and analysis tool built with Python and St
 - **🌐 Multi-language Support**: Generate summaries in English and Hebrew
 - **🎨 Customizable Temperature**: Control AI creativity and focus levels
 - **📊 AI Analysis Tab**: Integrated AI analysis within technical reports
+
+## 📱 WhatsApp Integration (WaPulse MCP)
+
+- **📢 Instant Notifications**: Get notified when scraping completes or encounters errors
+- **📊 Report Sharing**: Send analysis summaries and detailed reports via WhatsApp
+- **📈 Chart Sharing**: Share visual analytics and charts as images
+- **📄 File Sharing**: Send JSON reports, HTML templates, and blueprints
+- **📞 Phone Validation**: Automatic phone number validation and formatting
+- **🔔 Configurable Alerts**: Customize notification types and recipients
+- **👥 Bulk Messaging**: Send updates to multiple recipients
+- **⚙️ Easy Setup**: Simple configuration through the Settings page
 
 ## 📁 Project Structure
 
@@ -80,6 +92,12 @@ scraper/
      export DEEPSEEK_API_KEY="your-api-key-here"
      ```
    - Or enter it directly in the application sidebar when using AI features
+
+5. **Configure WhatsApp Integration (Optional for notifications):**
+   - Sign up for [WaPulse](https://wapulse.com/) and create a WhatsApp instance
+   - Get your Instance ID and API Token
+   - Configure in the Settings page of the application
+   - Scan QR code to connect your WhatsApp account
 
 ## 🚀 Usage
 

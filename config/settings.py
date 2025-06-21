@@ -97,4 +97,23 @@ ANALYTICS_PATTERNS = {
     'Hotjar': [r'static\.hotjar\.com/c/hotjar-', r'hjBootstrap'],
     'Mixpanel': [r'cdn\.mxpnl\.com/libs/mixpanel-', r'mixpanel\.'],
     'Adobe Analytics': [r'omniture\.com', r's_code\.js']
+}
+
+# WhatsApp/WaPulse settings
+WHATSAPP_CONFIG = {
+    'enabled': False,  # Will be enabled when user configures credentials
+    'instance_id': '',
+    'token': '',
+    'default_recipients': [],  # List of default phone numbers to send reports to
+    'message_templates': {
+        'scrape_complete': "🕷️ *Scraping Complete*\n\n*URL:* {url}\n*Pages:* {page_count}\n*Status:* ✅ Success\n\n📊 Report ready for analysis!",
+        'scrape_error': "🚨 *Scraping Error*\n\n*URL:* {url}\n*Error:* {error}\n\n⚠️ Please check the URL and try again.",
+        'report_summary': "📋 *Website Analysis Report*\n\n*URL:* {url}\n*Title:* {title}\n*Elements:* {element_count}\n*Performance Score:* {performance_score}%\n\n🔍 Full report available in the dashboard."
+    },
+    'file_sharing': {
+        'enable_html_templates': True,
+        'enable_json_reports': True,
+        'enable_charts': True,
+        'max_file_size_mb': 10
+    }
 } 

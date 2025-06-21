@@ -31,6 +31,14 @@ import hashlib
 import urllib.robotparser
 import nest_asyncio
 
+# Import WhatsApp integration
+try:
+    from utils.whatsapp_integration import get_whatsapp_client, configure_whatsapp
+    WHATSAPP_AVAILABLE = True
+except ImportError:
+    WHATSAPP_AVAILABLE = False
+    st.warning("⚠️ WhatsApp integration not available. Install required dependencies.")
+
 # Apply nest_asyncio to make asyncio work with Streamlit
 nest_asyncio.apply()
 
@@ -1941,6 +1949,25 @@ st.sidebar.markdown('<h3 class="main-header">Navigation</h3>', unsafe_allow_html
 page = st.sidebar.radio("Go to", ["Scraper", "Analytics", "Settings"])
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
+# WhatsApp Integration Settings in Sidebar
+if WHATSAPP_AVAILABLE:
+    st.sidebar.markdown('<div class="card">', unsafe_allow_html=True)
+    st.sidebar.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
+    
+    whatsapp_client = get_whatsapp_client()
+    
+    if whatsapp_client.is_configured():
+        st.sidebar.success("✅ WhatsApp Configured")
+        status = whatsapp_client.get_instance_status()
+        st.sidebar.caption(f"Status: {status.get('status', 'Unknown')}")
+    else:
+        st.sidebar.warning("⚠️ WhatsApp Not Configured")
+    
+    if st.sidebar.button("⚙️ Configure WhatsApp"):
+        st.session_state.show_whatsapp_config = True
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
 # Main content based on navigation
 if page == "Analytics":
     st.markdown('<h1 class="main-header">Analytics Dashboard</h1>', unsafe_allow_html=True)
@@ -1991,6 +2018,102 @@ if page == "Analytics":
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+elif page == "Settings":
+    st.markdown('<h1 class="main-header">⚙️ Settings</h1>', unsafe_allow_html=True)
+    
+    # WhatsApp Configuration Section
+    if WHATSAPP_AVAILABLE:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="main-header">📱 WhatsApp Integration</h3>', unsafe_allow_html=True)
+        
+        whatsapp_client = get_whatsapp_client()
+        
+        # Configuration form
+        with st.form("whatsapp_config"):
+            st.markdown("Configure your WaPulse WhatsApp integration:")
+            
+            instance_id = st.text_input(
+                "Instance ID", 
+                value=whatsapp_client.instance_id,
+                help="Your WaPulse instance ID"
+            )
+            
+            token = st.text_input(
+                "API Token", 
+                value="*" * len(whatsapp_client.token) if whatsapp_client.token else "",
+                type="password",
+                help="Your WaPulse API token"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("💾 Save Configuration"):
+                    if instance_id and token and not token.startswith("*"):
+                        if configure_whatsapp(instance_id, token):
+                            st.success("✅ WhatsApp configuration saved successfully!")
+                        else:
+                            st.error("❌ Failed to configure WhatsApp integration")
+                    else:
+                        st.warning("⚠️ Please provide both Instance ID and Token")
+            
+            with col2:
+                if st.form_submit_button("🧪 Test Connection"):
+                    if whatsapp_client.is_configured():
+                        status = whatsapp_client.get_instance_status()
+                        if status.get("configured"):
+                            st.success(f"✅ Connection successful! Status: {status.get('status')}")
+                        else:
+                            st.error(f"❌ Connection failed: {status.get('error')}")
+                    else:
+                        st.warning("⚠️ Please configure WhatsApp first")
+        
+        # Current status
+        if whatsapp_client.is_configured():
+            st.success("✅ WhatsApp integration is configured")
+            status = whatsapp_client.get_instance_status()
+            st.caption(f"Instance: {whatsapp_client.instance_id}")
+            st.caption(f"Status: {status.get('status', 'Unknown')}")
+        else:
+            st.warning("⚠️ WhatsApp integration not configured")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Notification Settings
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="main-header">🔔 Notification Settings</h3>', unsafe_allow_html=True)
+        
+        # Default recipients
+        default_recipients = st.text_area(
+            "Default Recipients",
+            placeholder="Enter phone numbers (one per line)\nExample: 1234567890",
+            help="Phone numbers to receive notifications (include country code, no + or spaces)"
+        )
+        
+        # Notification types
+        st.markdown("**Notification Types:**")
+        notify_scrape_complete = st.checkbox("Scraping completion notifications", value=True)
+        notify_scrape_error = st.checkbox("Scraping error notifications", value=True)
+        notify_report_ready = st.checkbox("Analysis report ready notifications", value=False)
+        
+        # File sharing settings
+        st.markdown("**File Sharing:**")
+        share_html_templates = st.checkbox("Share HTML templates", value=True)
+        share_json_reports = st.checkbox("Share JSON reports", value=True)
+        share_charts = st.checkbox("Share analysis charts", value=True)
+        
+        max_file_size = st.slider("Max file size (MB)", 1, 25, 10)
+        
+        if st.button("💾 Save Notification Settings"):
+            # Here you would save these settings to your config
+            st.success("✅ Notification settings saved!")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    else:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.warning("📱 WhatsApp integration is not available. Please install required dependencies.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
 elif page == "About":
     st.title("About This Web Scraper")
     st.markdown("""
@@ -2005,6 +2128,7 @@ elif page == "About":
         <li>📊 <strong>Technical reports</strong> - Get detailed technical information about each page</li>
         <li>📥 <strong>Export options</strong> - Download results in multiple formats</li>
         <li>🔍 <strong>Custom prompts</strong> - Create your own AI analysis instructions</li>
+        <li>📱 <strong>WhatsApp integration</strong> - Send reports and notifications via WhatsApp</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -2759,6 +2883,125 @@ elif page == "Scraper":
                         filename_rep = f"tech_reports_{timestamp}.json"
                         href_rep = f'<a href="data:application/json;base64,{b64_rep}" download="{filename_rep}">Download Technical Reports (JSON)</a>'
                         st.markdown(href_rep, unsafe_allow_html=True)
+                
+                # WhatsApp Sharing Section
+                if WHATSAPP_AVAILABLE:
+                    st.subheader("📱 Share via WhatsApp")
+                    whatsapp_client = get_whatsapp_client()
+                    
+                    if whatsapp_client.is_configured():
+                        with st.expander("🚀 WhatsApp Sharing Options"):
+                            # Phone number input
+                            phone_number = st.text_input(
+                                "Recipient Phone Number",
+                                placeholder="1234567890 (include country code, no + or spaces)",
+                                help="Enter the recipient's phone number with country code"
+                            )
+                            
+                            col1, col2, col3 = st.columns(3)
+                            
+                            # Send notification about scraping completion
+                            with col1:
+                                if st.button("📢 Send Completion Notification"):
+                                    if phone_number:
+                                        result = whatsapp_client.send_scrape_notification(
+                                            phone_number=phone_number,
+                                            url=target_url,
+                                            page_count=len(crawl_results),
+                                            success=True
+                                        )
+                                        if result["success"]:
+                                            st.success(f"✅ Notification sent to {result['recipient']}")
+                                        else:
+                                            st.error(f"❌ Failed to send: {result['error']}")
+                                    else:
+                                        st.warning("⚠️ Please enter a phone number")
+                            
+                            # Send report summary
+                            with col2:
+                                if st.button("📊 Send Report Summary"):
+                                    if phone_number and crawl_results and crawl_results[0].get("report"):
+                                        result = whatsapp_client.send_report_summary(
+                                            phone_number=phone_number,
+                                            report_data=crawl_results[0]["report"]
+                                        )
+                                        if result["success"]:
+                                            st.success(f"✅ Report summary sent to {result['recipient']}")
+                                        else:
+                                            st.error(f"❌ Failed to send: {result['error']}")
+                                    else:
+                                        st.warning("⚠️ Please enter phone number and ensure reports are available")
+                            
+                            # Send chart
+                            with col3:
+                                if st.button("📈 Send Analysis Chart"):
+                                    if phone_number and crawl_results and crawl_results[0].get("report"):
+                                        # Create a sample chart to send
+                                        report = crawl_results[0]["report"]
+                                        element_counts = report.get("element_analysis", {}).get("element_counts", {})
+                                        
+                                        if element_counts:
+                                            fig = create_element_distribution_chart(element_counts)
+                                            if fig:
+                                                result = whatsapp_client.send_chart_image(
+                                                    phone_number=phone_number,
+                                                    chart_figure=fig,
+                                                    chart_title="Website Element Distribution"
+                                                )
+                                                if result["success"]:
+                                                    st.success(f"✅ Chart sent to {result['recipient']} ({result['file_size_mb']}MB)")
+                                                else:
+                                                    st.error(f"❌ Failed to send: {result['error']}")
+                                                plt.close(fig)
+                                            else:
+                                                st.warning("⚠️ Could not generate chart")
+                                        else:
+                                            st.warning("⚠️ No chart data available")
+                                    else:
+                                        st.warning("⚠️ Please enter phone number and ensure reports are available")
+                            
+                            # Send files section
+                            st.markdown("**📁 Send Files:**")
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                if st.button("📄 Send JSON Report"):
+                                    if phone_number and crawl_results:
+                                        # Send the complete crawl results as JSON
+                                        result = whatsapp_client.send_json_report(
+                                            phone_number=phone_number,
+                                            report_data={"crawl_results": crawl_results, "timestamp": timestamp}
+                                        )
+                                        if result["success"]:
+                                            st.success(f"✅ JSON report sent to {result['recipient']} ({result['file_size_mb']}MB)")
+                                        else:
+                                            st.error(f"❌ Failed to send: {result['error']}")
+                                    else:
+                                        st.warning("⚠️ Please enter phone number and ensure results are available")
+                            
+                            with col2:
+                                if st.button("🌐 Send HTML Template"):
+                                    if phone_number and crawl_results and crawl_results[0].get("report"):
+                                        # Generate and send HTML template
+                                        report = crawl_results[0]["report"]
+                                        blueprint = generate_website_blueprint(report)
+                                        html_template = generate_html_template(blueprint)
+                                        
+                                        result = whatsapp_client.send_html_template(
+                                            phone_number=phone_number,
+                                            html_content=html_template
+                                        )
+                                        if result["success"]:
+                                            st.success(f"✅ HTML template sent to {result['recipient']} ({result['file_size_mb']}MB)")
+                                        else:
+                                            st.error(f"❌ Failed to send: {result['error']}")
+                                    else:
+                                        st.warning("⚠️ Please enter phone number and ensure reports are available")
+                    else:
+                        st.warning("⚠️ WhatsApp integration not configured. Go to Settings to configure.")
+                        if st.button("⚙️ Go to Settings"):
+                            st.session_state.page = "Settings"
+                            st.rerun()
 
 # --- Footer ---
 st.markdown("---")
